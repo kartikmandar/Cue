@@ -1,0 +1,47 @@
+[workspace]
+name = "cue"
+version = "0.1.0"
+description = "Blind-first macOS accessibility copilot powered by Cua Driver and Cerebras Gemma 4."
+channels = ["conda-forge"]
+platforms = [
+  { platform = "osx-arm64", osx = "26.5" },
+  { platform = "osx-64", osx = "26.5" },
+]
+
+[dependencies]
+python = "3.14.*"
+fastapi = ">=0.111"
+pydantic = ">=2.8"
+python-dotenv = ">=1.0"
+rich = ">=13.7"
+uvicorn = ">=0.30"
+pytest = ">=8.2"
+ruff = ">=0.5"
+
+[pypi-dependencies]
+cerebras_cloud_sdk = ">=1.50"
+
+[tasks]
+setup = "pixi install"
+test = "python -m pytest -v"
+test-config = "python -m pytest tests/test_config.py -v"
+test-cua = "python -m pytest tests/test_cua_driver.py -v"
+test-context = "python -m pytest tests/test_context.py -v"
+test-cerebras = "python -m pytest tests/test_cerebras_client.py -v"
+test-planner = "python -m pytest tests/test_planner_schema.py -v"
+test-safety = "python -m pytest tests/test_safety.py -v"
+test-session = "python -m pytest tests/test_session.py -v"
+test-backend = "python -m pytest tests/test_backend.py -v"
+test-api = "python -m pytest tests/test_api.py -v"
+lint = "ruff check cue tests"
+format-check = "ruff format --check cue tests"
+backend = "./scripts/run_backend.sh"
+cue = "python -m cue.cli"
+doctor = "./scripts/doctor.sh"
+install-cua = "./scripts/install_cua_driver.sh"
+xcode = "./scripts/run_mac_app.sh"
+test-mac = "xcodebuild test -project apps/mac/CueApp/CueApp.xcodeproj -scheme CueApp"
+build-app = "xcodebuild -project apps/mac/CueApp/CueApp.xcodeproj -scheme CueApp -configuration Release -derivedDataPath build/mac"
+package = "./scripts/package_app.sh"
+app = "open build/mac/Build/Products/Release/CueApp.app"
+demo = "./scripts/run_demo.sh"
