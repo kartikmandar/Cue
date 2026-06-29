@@ -141,9 +141,9 @@ def make_plan(
     )
 
 
-def make_client(*, planner=None, observer=None, executor=None):
+def make_client(*, planner=None, observer=None, executor=None, settings=None):
     backend = CueBackend(
-        settings=make_settings(),
+        settings=settings or make_settings(),
         observer=observer or FakeObserver(make_observation()),
         planner=planner or make_plan,
         reviewer=lambda candidate: PlanReview(
@@ -163,7 +163,13 @@ def test_health_endpoint():
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "app": "cue", "yolo_mode": False}
+    assert response.json() == {
+        "status": "ok",
+        "app": "cue",
+        "yolo_mode": False,
+        "model_provider": "cerebras",
+        "model": "gemma-4-31b",
+    }
 
 
 def test_mode_endpoint_updates_yolo_mode_and_existing_sessions():
@@ -175,9 +181,38 @@ def test_mode_endpoint_updates_yolo_mode_and_existing_sessions():
     mode = client.post("/mode", json={"yolo_mode": True}).json()
     next_response = client.post("/session/next", json={"session_id": session_id}).json()
 
-    assert mode == {"yolo_mode": True}
+    assert mode == {
+        "yolo_mode": True,
+        "model_provider": "cerebras",
+        "model": "gemma-4-31b",
+    }
     assert next_response["state"] == SessionState.COMPLETED.value
     assert len(executor.calls) == 1
+
+
+def test_mode_endpoint_switches_model_provider_when_key_is_available():
+    client, _backend = make_client(
+        settings=make_settings(openrouter_api_key="test-openrouter-key")
+    )
+
+    mode = client.post("/mode", json={"model_provider": "openrouter"}).json()
+    inspected = client.get("/mode").json()
+
+    assert mode == {
+        "yolo_mode": False,
+        "model_provider": "openrouter",
+        "model": "google/gemma-4-31b-it:free",
+    }
+    assert inspected == mode
+
+
+def test_mode_endpoint_rejects_openrouter_without_api_key():
+    client, _backend = make_client()
+
+    response = client.post("/mode", json={"model_provider": "openrouter"})
+
+    assert response.status_code == 400
+    assert "OPENROUTER_API_KEY" in response.json()["detail"]
 
 
 def test_preview_response_shape():

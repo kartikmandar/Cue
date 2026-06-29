@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
@@ -32,6 +33,12 @@ class Settings(BaseModel):
     cerebras_model: str = "gemma-4-31b"
     cerebras_reasoning_effort: str = "none"
     cerebras_sdk_timeout_seconds: int = 30
+    openrouter_api_key: str = ""
+    openrouter_model: str = "google/gemma-4-31b-it:free"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_http_referer: str = ""
+    openrouter_app_title: str = "Cue"
+    model_provider: Literal["cerebras", "openrouter"] = "cerebras"
     api_host: str = "127.0.0.1"
     api_port: int = 8765
     backend_mode: str = "local"
@@ -107,6 +114,18 @@ def load_settings(env_file: str | Path | None = ".env") -> Settings:
         cerebras_model=os.getenv("CEREBRAS_MODEL", "gemma-4-31b"),
         cerebras_reasoning_effort=os.getenv("CEREBRAS_REASONING_EFFORT", "none"),
         cerebras_sdk_timeout_seconds=_env_int("CEREBRAS_SDK_TIMEOUT_SECONDS", 30),
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY", "").strip(),
+        openrouter_model=os.getenv(
+            "OPENROUTER_MODEL",
+            "google/gemma-4-31b-it:free",
+        ),
+        openrouter_base_url=os.getenv(
+            "OPENROUTER_BASE_URL",
+            "https://openrouter.ai/api/v1",
+        ).rstrip("/"),
+        openrouter_http_referer=os.getenv("OPENROUTER_HTTP_REFERER", "").strip(),
+        openrouter_app_title=os.getenv("OPENROUTER_APP_TITLE", "Cue"),
+        model_provider=os.getenv("CUE_MODEL_PROVIDER", "cerebras"),
         api_host=os.getenv("CUE_API_HOST", "127.0.0.1"),
         api_port=_env_int("CUE_API_PORT", 8765),
         backend_mode=os.getenv("CUE_BACKEND_MODE", "local"),

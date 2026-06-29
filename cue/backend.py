@@ -95,16 +95,38 @@ class CueBackend:
             self._record_event(runtime, "block", session)
         return self._response(runtime, session, started_at=start)
 
-    def set_yolo_mode(self, enabled: bool) -> dict[str, bool]:
-        self.settings = self.settings.model_copy(update={"yolo_mode": enabled})
+    def set_yolo_mode(self, enabled: bool) -> dict[str, str | bool]:
+        return self.set_mode(yolo_mode=enabled)
+
+    def set_mode(
+        self,
+        *,
+        yolo_mode: bool | None = None,
+        model_provider: str | None = None,
+    ) -> dict[str, str | bool]:
+        updates: dict[str, Any] = {}
+        if yolo_mode is not None:
+            updates["yolo_mode"] = yolo_mode
+        if model_provider is not None:
+            if model_provider not in {"cerebras", "openrouter"}:
+                raise ValueError("model_provider must be cerebras or openrouter")
+            if model_provider == "openrouter" and not self.settings.openrouter_api_key:
+                raise ValueError("OPENROUTER_API_KEY is required for OpenRouter mode")
+            updates["model_provider"] = model_provider
+        if updates:
+            self.settings = self.settings.model_copy(update=updates)
         if hasattr(self._planner, "settings"):
             self._planner.settings = self.settings
         for runtime in self._sessions.values():
             runtime.orchestrator.settings = self.settings
-        return {"yolo_mode": self.settings.yolo_mode}
+        return self.mode()
 
-    def mode(self) -> dict[str, bool]:
-        return {"yolo_mode": self.settings.yolo_mode}
+    def mode(self) -> dict[str, str | bool]:
+        return {
+            "yolo_mode": self.settings.yolo_mode,
+            "model_provider": self.settings.model_provider,
+            "model": _active_model(self.settings),
+        }
 
     def chat(
         self,
@@ -311,6 +333,12 @@ def create_backend(settings: Settings | None = None) -> CueBackend:
         executor=CuaActionExecutor(),
         narrator=Narrator(),
     )
+
+
+def _active_model(settings: Settings) -> str:
+    if settings.model_provider == "openrouter":
+        return settings.openrouter_model
+    return settings.cerebras_model
 
 
 def _event_summary(event_type: str, session: Any) -> str:

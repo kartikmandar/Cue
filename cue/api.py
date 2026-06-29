@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 
@@ -48,7 +50,8 @@ class CancelRequest(SessionRequest):
 class ModeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    yolo_mode: bool
+    yolo_mode: bool | None = None
+    model_provider: Literal["cerebras", "openrouter"] | None = None
 
 
 def create_app(backend: CueBackend | None = None) -> FastAPI:
@@ -58,19 +61,26 @@ def create_app(backend: CueBackend | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str | bool]:
+        mode = cue_backend.mode()
         return {
             "status": "ok",
             "app": "cue",
-            "yolo_mode": cue_backend.settings.yolo_mode,
+            **mode,
         }
 
     @app.get("/mode")
-    def mode() -> dict[str, bool]:
+    def mode() -> dict[str, str | bool]:
         return cue_backend.mode()
 
     @app.post("/mode")
-    def set_mode(request: ModeRequest) -> dict[str, bool]:
-        return cue_backend.set_yolo_mode(request.yolo_mode)
+    def set_mode(request: ModeRequest) -> dict[str, str | bool]:
+        try:
+            return cue_backend.set_mode(
+                yolo_mode=request.yolo_mode,
+                model_provider=request.model_provider,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/session/preview")
     def preview(request: PreviewRequest) -> dict:

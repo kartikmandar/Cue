@@ -168,10 +168,10 @@ def passed():
     )
 
 
-def make_backend(*, plan=None, observer=None, executor=None, verifier=None):
+def make_backend(*, plan=None, observer=None, executor=None, verifier=None, settings=None):
     workflow_plan = plan or make_plan()
     return CueBackend(
-        settings=make_settings(),
+        settings=settings or make_settings(),
         observer=observer or FakeObserver(make_observation()),
         planner=lambda request, observation: workflow_plan,
         reviewer=lambda candidate: PlanReview(
@@ -199,6 +199,42 @@ def test_preview_returns_workflow_plan_focus_and_narration():
     assert response["risk"]["approval_tier"] == ApprovalTier.CONFIRM_EACH_ACTION.value
     assert response["policy_decision"]["allowed"] is True
     assert response["audit_summary"]
+
+
+def test_mode_reports_provider_and_active_model():
+    backend = make_backend()
+
+    assert backend.mode() == {
+        "yolo_mode": False,
+        "model_provider": "cerebras",
+        "model": "gemma-4-31b",
+    }
+
+
+def test_set_mode_switches_provider_when_openrouter_key_is_available():
+    backend = make_backend(
+        settings=make_settings(openrouter_api_key="test-openrouter-key")
+    )
+
+    response = backend.set_mode(model_provider="openrouter")
+
+    assert response == {
+        "yolo_mode": False,
+        "model_provider": "openrouter",
+        "model": "google/gemma-4-31b-it:free",
+    }
+    assert backend.settings.model_provider == "openrouter"
+
+
+def test_set_mode_rejects_openrouter_without_api_key():
+    backend = make_backend()
+
+    try:
+        backend.set_mode(model_provider="openrouter")
+    except ValueError as exc:
+        assert "OPENROUTER_API_KEY" in str(exc)
+    else:
+        raise AssertionError("OpenRouter should require an API key before selection")
 
 
 def test_approve_stores_workflow_approval():

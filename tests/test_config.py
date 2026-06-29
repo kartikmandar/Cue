@@ -7,6 +7,12 @@ CONFIG_ENV_KEYS = [
     "CEREBRAS_MODEL",
     "CEREBRAS_REASONING_EFFORT",
     "CEREBRAS_SDK_TIMEOUT_SECONDS",
+    "OPENROUTER_API_KEY",
+    "OPENROUTER_MODEL",
+    "OPENROUTER_BASE_URL",
+    "OPENROUTER_HTTP_REFERER",
+    "OPENROUTER_APP_TITLE",
+    "CUE_MODEL_PROVIDER",
     "CUE_API_HOST",
     "CUE_API_PORT",
     "CUE_BACKEND_MODE",
@@ -60,6 +66,39 @@ def test_default_model_is_gemma_4(monkeypatch):
     settings = load_settings(env_file=None)
 
     assert settings.cerebras_model == "gemma-4-31b"
+    assert settings.model_provider == "cerebras"
+    assert settings.openrouter_model == "google/gemma-4-31b-it:free"
+    assert settings.openrouter_base_url == "https://openrouter.ai/api/v1"
+    assert settings.openrouter_app_title == "Cue"
+
+
+def test_openrouter_provider_settings_load_from_environment(monkeypatch):
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-cerebras-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+    monkeypatch.setenv("CUE_MODEL_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
+    monkeypatch.setenv("OPENROUTER_BASE_URL", "https://openrouter.example/api/v1")
+    monkeypatch.setenv("OPENROUTER_HTTP_REFERER", "https://cue.example")
+    monkeypatch.setenv("OPENROUTER_APP_TITLE", "Cue Dev")
+
+    settings = load_settings(env_file=None)
+
+    assert settings.model_provider == "openrouter"
+    assert settings.openrouter_api_key == "test-openrouter-key"
+    assert settings.openrouter_model == "google/gemma-4-31b-it:free"
+    assert settings.openrouter_base_url == "https://openrouter.example/api/v1"
+    assert settings.openrouter_http_referer == "https://cue.example"
+    assert settings.openrouter_app_title == "Cue Dev"
+
+
+def test_invalid_model_provider_is_rejected(monkeypatch):
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-key")
+    monkeypatch.setenv("CUE_MODEL_PROVIDER", "anthropic")
+
+    with pytest.raises(ValueError, match="model_provider"):
+        load_settings(env_file=None)
 
 
 def test_strict_privacy_defaults(monkeypatch):
