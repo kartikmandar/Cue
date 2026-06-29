@@ -139,6 +139,18 @@ def test_chat_answers_casual_greeting_without_observing_desktop():
     assert observer.calls == 0
 
 
+def test_chat_does_not_treat_hi_inside_words_as_greeting():
+    observer = FakeObserver()
+    backend = make_backend(observer=observer)
+
+    response = backend.chat("Tell me what this PDF is about")
+
+    assert response["mode"] == "action_preview"
+    assert response["session"]["session_id"]
+    assert "I am ready" not in response["assistant_message"]
+    assert observer.calls == 1
+
+
 def test_chat_capability_help_mentions_approval_and_text_fallback():
     backend = make_backend()
 

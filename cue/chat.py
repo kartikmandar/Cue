@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from uuid import uuid4
 
 
@@ -31,12 +32,12 @@ def is_conversation_only(text: str) -> bool:
     normalized = text.strip().casefold()
     if not normalized:
         return False
-    return any(term in normalized for term in CASUAL_TERMS + HELP_TERMS)
+    return _contains_term(normalized, CASUAL_TERMS + HELP_TERMS)
 
 
 def conversational_reply(text: str) -> str:
     normalized = text.strip().casefold()
-    if any(term in normalized for term in HELP_TERMS):
+    if _contains_term(normalized, HELP_TERMS):
         return (
             "Cue is a voice-first desktop assistant. You can ask naturally, and I "
             "will either answer or prepare a safe desktop action for you to approve. "
@@ -52,7 +53,7 @@ def conversational_reply(text: str) -> str:
 
 def suggested_replies(text: str) -> list[str]:
     normalized = text.strip().casefold()
-    if any(term in normalized for term in HELP_TERMS):
+    if _contains_term(normalized, HELP_TERMS):
         return [
             "What app am I in?",
             "Open TextEdit",
@@ -63,6 +64,13 @@ def suggested_replies(text: str) -> list[str]:
         "What app am I in?",
         "Open TextEdit",
     ]
+
+
+def _contains_term(normalized_text: str, terms: tuple[str, ...]) -> bool:
+    return any(
+        re.search(rf"\b{re.escape(term)}\b", normalized_text) is not None
+        for term in terms
+    )
 
 
 def assistant_message_for_session(session: dict) -> str:
