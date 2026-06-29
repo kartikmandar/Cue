@@ -5,7 +5,7 @@ from cue.agent_models import (
     WorkflowPlan,
     WorkflowStep,
 )
-from cue.cli import LocalCliPlanner, main
+from cue.cli import CuaActionExecutor, LocalCliPlanner, main
 from cue.config import Settings
 from cue.context import DesktopObservation
 from cue.focus import CursorPosition, FocusedElement
@@ -20,6 +20,21 @@ class FakeExecutor:
     def __call__(self, action):
         self.calls.append(action)
         return {"ok": True}
+
+
+class FakeLaunchDriver:
+    def __init__(self, window_states):
+        self.window_states = list(window_states)
+        self.driver_open_calls = []
+
+    def open_app(self, app_name):
+        self.driver_open_calls.append(app_name)
+        return {"ok": True, "app_name": app_name}
+
+    def get_window_state(self):
+        if self.window_states:
+            return self.window_states.pop(0)
+        return {}
 
 
 def make_settings(**overrides):
@@ -199,6 +214,73 @@ def test_local_cli_planner_opens_notes_app_for_notes_launch_request():
     assert plan.steps[0].action.action_type == ActionType.OPEN_APP
     assert plan.steps[0].action.payload == {"app_name": "Notes"}
     assert plan.steps[0].action.expected_app == "Notes"
+
+
+def test_local_cli_planner_defaults_to_notes_for_notes_launch_request():
+    planner = LocalCliPlanner(settings=Settings(cerebras_api_key="test-key"))
+
+    plan = planner(
+        "open the notes app",
+        make_observation(app="Soku", window="Cue", focus="Cue request"),
+    )
+
+    assert plan.workflow_category == WorkflowCategory.APP_LAUNCH
+    assert plan.steps[0].action.action_type == ActionType.OPEN_APP
+    assert plan.steps[0].action.payload == {"app_name": "Notes"}
+    assert plan.steps[0].action.expected_app == "Notes"
+
+
+def test_local_cli_planner_treats_nodes_as_notes_launch_request():
+    planner = LocalCliPlanner(settings=Settings(cerebras_api_key="test-key"))
+
+    plan = planner(
+        "open nodes",
+        make_observation(app="Soku", window="Cue", focus="Cue request"),
+    )
+
+    assert plan.workflow_category == WorkflowCategory.APP_LAUNCH
+    assert plan.steps[0].action.payload == {"app_name": "Notes"}
+    assert plan.steps[0].action.expected_app == "Notes"
+
+
+def test_action_executor_waits_for_open_app_to_become_frontmost(monkeypatch):
+    open_commands = []
+
+    def fake_run(command, capture_output, text, check, timeout):
+        open_commands.append(command)
+        import subprocess
+
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+    monkeypatch.setattr("cue.app_launch.subprocess.run", fake_run)
+    monkeypatch.setattr("cue.app_launch.time.sleep", lambda seconds: None)
+    driver = FakeLaunchDriver(
+        [
+            {"active_app": "Soku", "window_title": "Cue"},
+            {"active_app": "Terminal", "window_title": "Terminal"},
+        ]
+    )
+
+    result = CuaActionExecutor(driver=driver)(
+        CueAction(
+            action_type=ActionType.OPEN_APP,
+            payload={"app_name": "Terminal"},
+            reason="Open Terminal for the approved workflow.",
+            expected_app="Terminal",
+            changes_state=True,
+        )
+    )
+
+    assert open_commands == [["open", "-a", "Terminal"]]
+    assert driver.driver_open_calls == []
+    assert result.ok is True
+    assert result.app_name == "Terminal"
+    assert result.reason == "Terminal active with window Terminal."
 
 
 def test_local_cli_planner_treats_screen_question_as_read_only_answer():

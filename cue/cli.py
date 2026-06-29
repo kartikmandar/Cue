@@ -12,6 +12,11 @@ from cue.agent_models import (
     WorkflowSession,
     WorkflowStep,
 )
+from cue.app_launch import (
+    activate_app as activate_macos_app,
+    open_app as open_macos_app,
+    open_file as open_macos_file,
+)
 from cue.config import Settings, load_settings
 from cue.context import DesktopObservation
 from cue.cua_driver import CuaDriver
@@ -277,11 +282,17 @@ class CuaActionExecutor:
         }:
             return {"ok": True, "action_type": action_type.value, "executed": False}
         if action_type == ActionType.OPEN_APP:
-            return self.driver.open_app(_payload_text(payload, "app_name", "app"))
+            return open_macos_app(
+                _payload_text(payload, "app_name", "app"),
+                driver=self.driver,
+            )
         if action_type == ActionType.OPEN_FILE:
-            return self.driver.open_file(_payload_text(payload, "path"))
+            return open_macos_file(_payload_text(payload, "path"), driver=self.driver)
         if action_type == ActionType.ACTIVATE_APP:
-            return self.driver.activate_app(_payload_text(payload, "app_name", "app"))
+            return activate_macos_app(
+                _payload_text(payload, "app_name", "app"),
+                driver=self.driver,
+            )
         if action_type == ActionType.CLICK:
             return self.driver.click(int(payload["x"]), int(payload["y"]))
         if action_type == ActionType.TYPE_TEXT:
@@ -526,6 +537,9 @@ def _requested_app(text: str, settings: Settings) -> str | None:
     for app in settings.allowed_apps:
         if app.casefold() in normalized:
             return app
+    for alias, app in _COMMON_APP_ALIASES.items():
+        if alias in normalized:
+            return app
     if "terminal" in normalized:
         return "Terminal"
     if "textedit" in normalized or "text edit" in normalized:
@@ -537,6 +551,27 @@ def _requested_app(text: str, settings: Settings) -> str | None:
     if "chrome" in normalized:
         return "Google Chrome"
     return None
+
+
+_COMMON_APP_ALIASES = {
+    "nodes": "Notes",
+    "notes": "Notes",
+    "note app": "Notes",
+    "calendar": "Calendar",
+    "reminders": "Reminders",
+    "mail": "Mail",
+    "messages": "Messages",
+    "contacts": "Contacts",
+    "facetime": "FaceTime",
+    "maps": "Maps",
+    "photos": "Photos",
+    "music": "Music",
+    "calculator": "Calculator",
+    "dictionary": "Dictionary",
+    "stickies": "Stickies",
+    "voice memos": "Voice Memos",
+    "quicktime player": "QuickTime Player",
+}
 
 
 def _is_task_16_textedit_document_request(intent: IntentResult) -> bool:

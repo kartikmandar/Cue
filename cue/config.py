@@ -14,6 +14,7 @@ DEFAULT_ALLOWED_APPS = [
     "Google Chrome",
     "Terminal",
     "Finder",
+    "Notes",
 ]
 DEFAULT_BLOCKED_APPS = [
     "Keychain Access",
