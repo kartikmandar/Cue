@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from cue.actions import ActionType, CueAction, WorkflowCategory
 from cue.agent_models import (
     IntentResult,
@@ -46,6 +48,21 @@ class FakeVerifier:
         if len(self.results) > 1:
             return self.results.pop(0)
         return self.results[0]
+
+
+class TimingPlanner:
+    def __init__(self, plan, result):
+        self.settings = None
+        self.plan = plan
+        self.last_result = result
+        self.providers_seen = []
+
+    def __call__(self, request, observation):
+        del request, observation
+        self.providers_seen.append(
+            self.settings.model_provider if self.settings is not None else "unknown"
+        )
+        return self.plan
 
 
 def make_settings(**overrides):
@@ -209,6 +226,47 @@ def test_mode_reports_provider_and_active_model():
         "model_provider": "cerebras",
         "model": "gemma-4-31b",
     }
+
+
+def test_preview_timing_includes_provider_model_latency_and_tokens():
+    planner = TimingPlanner(
+        make_plan(),
+        SimpleNamespace(
+            provider="openrouter",
+            model="google/gemma-4-31b-it:free",
+            latency_ms=1080,
+            usage={"total_tokens": 15},
+            time_info={"service_tier": "default"},
+        ),
+    )
+    backend = make_backend(
+        settings=make_settings(openrouter_api_key="test-openrouter-key"),
+        plan=make_plan(),
+    )
+    backend._planner = planner
+
+    response = backend.preview("Open TextEdit")
+
+    assert response["timing"]["provider"] == "openrouter"
+    assert response["timing"]["model"] == "google/gemma-4-31b-it:free"
+    assert response["timing"]["latency_ms"] == 1080
+    assert response["timing"]["token_usage"] == 15
+    assert response["timing"]["provider_timing"] == {"service_tier": "default"}
+
+
+def test_provider_switch_updates_planner_settings_before_next_preview():
+    planner = TimingPlanner(make_plan(), result=None)
+    backend = make_backend(
+        settings=make_settings(openrouter_api_key="test-openrouter-key"),
+        plan=make_plan(),
+    )
+    backend._planner = planner
+
+    backend.preview("Open TextEdit")
+    backend.set_mode(model_provider="openrouter")
+    backend.preview("Open TextEdit again")
+
+    assert planner.providers_seen == ["cerebras", "openrouter"]
 
 
 def test_set_mode_switches_provider_when_openrouter_key_is_available():

@@ -15,10 +15,11 @@ from cue.chat import (
     mode_for_session,
     suggested_replies,
 )
-from cue.cli import CuaActionExecutor, LocalCliPlanner, observe_desktop
+from cue.cli import CuaActionExecutor, observe_desktop
 from cue.config import Settings, load_settings
 from cue.context import DesktopObservation
 from cue.memory import SessionMemory
+from cue.model_planner import ModelBackedPlanner
 from cue.narrator import Narrator
 from cue.policy import ApprovalTier
 from cue.redaction import redact_for_persistence
@@ -83,9 +84,11 @@ class CueBackend:
         self._memory_factory = memory_factory
         self._sessions: dict[str, _SessionRuntime] = {}
         self._current_session_id: str | None = None
+        self._sync_planner_settings()
 
     def preview(self, request: str) -> dict[str, Any]:
         start = perf_counter()
+        self._sync_planner_settings()
         runtime = self._new_runtime()
         session = runtime.orchestrator.preview(request)
         self._sessions[session.session_id] = runtime
@@ -115,8 +118,7 @@ class CueBackend:
             updates["model_provider"] = model_provider
         if updates:
             self.settings = self.settings.model_copy(update=updates)
-        if hasattr(self._planner, "settings"):
-            self._planner.settings = self.settings
+        self._sync_planner_settings()
         for runtime in self._sessions.values():
             runtime.orchestrator.settings = self.settings
         return self.mode()
@@ -316,12 +318,19 @@ class CueBackend:
                     "redaction_applied": bool(plan and plan.redaction_applied),
                 },
                 "confirmation_prompt": plan.confirmation_prompt if plan else None,
-                "timing": {"backend_ms": backend_ms},
+                "timing": {
+                    "backend_ms": backend_ms,
+                    **_model_timing(self._planner),
+                },
                 "audit_summary": [event["summary"] for event in events],
                 "audit_events": events,
             }
         )
         return payload
+
+    def _sync_planner_settings(self) -> None:
+        if hasattr(self._planner, "settings"):
+            self._planner.settings = self.settings
 
 
 def create_backend(settings: Settings | None = None) -> CueBackend:
@@ -329,7 +338,7 @@ def create_backend(settings: Settings | None = None) -> CueBackend:
     return CueBackend(
         settings=loaded_settings,
         observer=observe_desktop,
-        planner=LocalCliPlanner(settings=loaded_settings),
+        planner=ModelBackedPlanner(settings=loaded_settings),
         executor=CuaActionExecutor(),
         narrator=Narrator(),
     )
@@ -339,6 +348,21 @@ def _active_model(settings: Settings) -> str:
     if settings.model_provider == "openrouter":
         return settings.openrouter_model
     return settings.cerebras_model
+
+
+def _model_timing(planner: Any) -> dict[str, Any]:
+    result = getattr(planner, "last_result", None)
+    if result is None:
+        return {}
+    usage = getattr(result, "usage", {}) or {}
+    timing: dict[str, Any] = {
+        "provider": getattr(result, "provider", None),
+        "model": getattr(result, "model", None),
+        "latency_ms": getattr(result, "latency_ms", None),
+        "token_usage": usage.get("total_tokens") if isinstance(usage, Mapping) else None,
+        "provider_timing": getattr(result, "time_info", {}) or {},
+    }
+    return {key: value for key, value in timing.items() if value is not None}
 
 
 def _event_summary(event_type: str, session: Any) -> str:
