@@ -25,12 +25,11 @@ Last checked on June 29, 2026 from this checkout:
 
 | Check | Result | Notes |
 |---|---|---|
-| `pixi run test` | Passed | 138 Python tests passed; one Starlette test-client deprecation warning was reported. |
-| `pixi run test-mac` | Passed | 6 XCTest tests passed; Xcode printed non-fatal macOS service warnings. |
-| `pixi run doctor` | Passed | Cua Driver 0.6.8 is installed and can observe apps, windows, Accessibility state, screen size, and cursor position. |
-| `pixi run package` | Passed | Wrote `dist/CueApp.zip`. |
-| `pixi run backend` + `/health` | Passed | `GET /health` returned `{"status":"ok","app":"cue"}`. |
-| `pixi run app` | Passed | The Release `CueApp.app` launched, and Cua AX inspection found Cue onboarding/privacy/policy/Accessibility/Screen Recording state without recording screenshots. |
+| `pixi run test` | Passed | 146 Python tests passed; one Starlette test-client deprecation warning was reported. |
+| `pixi run test-mac` | Passed | 11 XCTest tests passed; Xcode printed non-fatal macOS service warnings. |
+| `pixi run lint` | Passed | Ruff reported `All checks passed!`. |
+| `pixi run package` | Passed | Built the Release app and wrote `dist/CueApp.zip`. |
+| `/chat` API smoke | Passed | A local POST to `/chat` returned `conversation_id=smoke`, `mode=conversation`, and suggested replies. |
 
 A live Cerebras smoke check was run off-screen after explicit approval. It used
 the configured `.env` key without printing it and returned a deterministic
@@ -44,11 +43,20 @@ Build and launch the macOS shell from Xcode through Pixi:
 pixi run xcode
 ```
 
-The app opens to the Cue command palette. Use text input by default; voice mode
-is shown but remains disabled unless local speech/input support is enabled. The
-palette previews a workflow, asks for approval, executes one step at a time,
-shows focus, policy, verification, privacy, timing, and redacted audit state,
-and narrates preview or verification text when speech is enabled.
+The app opens to a voice-first conversation. Use `Push to Talk` to dictate a
+request, review the transcript, then send it to Cue. `Type Instead` keeps a full
+keyboard fallback in the same chat, but voice is the default mode.
+
+Voice input uses macOS Microphone and Speech Recognition permissions. The first
+push-to-talk attempt may show system permission prompts; the onboarding and
+details views show whether Microphone and Speech Recognition are ready. Cue does
+not listen continuously by default.
+
+Cue answers normal chat in the transcript. When a request would change desktop
+state, the assistant message includes an inline action preview with approve,
+next-step, and cancel controls. Raw workflow, focus, policy, verification,
+privacy, timing, and redacted audit details are hidden by default behind the
+`Details` button.
 
 Open the palette with `Shift` + `Command` + `Space` while the app is running, or
 from the menu-bar item.
@@ -154,6 +162,10 @@ Known validation gaps from this pass:
   approves the visible preview.
 - PDF/dashboard summary was validated through the safe read-only backend path;
   record a richer app summary only against synthetic local demo material.
+- Live microphone transcription still needs a manual macOS permission and
+  hardware check. The app now includes the Speech.framework controller,
+  permission status, usage descriptions, and XCTest coverage for the default
+  voice state.
 
 ## Packaging
 

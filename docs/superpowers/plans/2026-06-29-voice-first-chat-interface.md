@@ -111,11 +111,11 @@
 **Interfaces:**
 - Updates user-facing run/use instructions to describe voice-first chat, typed fallback, action approvals, and details inspector.
 
-- [ ] Update README with the new interaction model and voice permission notes.
-- [ ] Run `pixi run test`.
-- [ ] Run `pixi run test-mac`.
-- [ ] Run `pixi run package`.
-- [ ] Run a read-only CLI/API smoke if backend changes warrant it.
-- [ ] Inspect `git status`.
-- [ ] Commit final docs/packaging slice.
-- [ ] Push `main` to `origin/main`.
+- [x] Update README with the new interaction model and voice permission notes.
+- [x] Run `pixi run test`.
+- [x] Run `pixi run test-mac`.
+- [x] Run `pixi run package`.
+- [x] Run a read-only CLI/API smoke if backend changes warrant it.
+- [x] Inspect `git status`.
+- [x] Commit final docs/packaging slice.
+- [x] Push `main` to `origin/main`.
