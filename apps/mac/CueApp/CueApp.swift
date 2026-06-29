@@ -23,21 +23,23 @@ final class CueAppDelegate: NSObject, NSApplicationDelegate {
 
     func configure(appState: AppState) {
         guard statusBarController == nil else { return }
+        let listenNow: @MainActor () -> Void = { [weak appState] in
+            appState?.startGlobalVoiceCommandCapture()
+        }
+        let openCue: @MainActor () -> Void = {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        }
         statusBarController = CueStatusBarController(
             appState: appState,
-            openCue: {
-                NSApp.activate(ignoringOtherApps: true)
-                NSApp.windows.first?.makeKeyAndOrderFront(nil)
-            },
+            listenNow: listenNow,
+            openCue: openCue,
             quitCue: {
                 NSApp.terminate(nil)
             }
         )
         hotKeyController = HotKeyController()
-        hotKeyController?.start {
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.windows.first?.makeKeyAndOrderFront(nil)
-        }
+        hotKeyController?.start(openPalette: openCue, listenNow: listenNow)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

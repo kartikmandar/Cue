@@ -3,23 +3,52 @@ import Foundation
 
 @MainActor
 final class HotKeyController {
+    enum HotKeyScope {
+        case local
+        case global
+    }
+
     private var localMonitor: Any?
     private var globalMonitor: Any?
 
-    func start(openPalette: @escaping @MainActor () -> Void) {
+    func start(
+        openPalette: @escaping @MainActor () -> Void,
+        listenNow: @escaping @MainActor () -> Void
+    ) {
         stop()
 
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard Self.matchesCueHotKey(event) else { return event }
-            openPalette()
+            self?.handleCueHotKey(
+                scope: .local,
+                openPalette: openPalette,
+                listenNow: listenNow
+            )
             return nil
         }
 
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard Self.matchesCueHotKey(event) else { return }
             Task { @MainActor in
-                openPalette()
+                self?.handleCueHotKey(
+                    scope: .global,
+                    openPalette: openPalette,
+                    listenNow: listenNow
+                )
             }
+        }
+    }
+
+    func handleCueHotKey(
+        scope: HotKeyScope,
+        openPalette: @escaping @MainActor () -> Void,
+        listenNow: @escaping @MainActor () -> Void
+    ) {
+        switch scope {
+        case .local:
+            openPalette()
+        case .global:
+            listenNow()
         }
     }
 

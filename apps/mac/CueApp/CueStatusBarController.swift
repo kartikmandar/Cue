@@ -4,16 +4,19 @@ import AppKit
 final class CueStatusBarController: NSObject {
     private let statusItem: NSStatusItem
     private weak var appState: AppState?
+    private let listenNow: () -> Void
     private let openCue: () -> Void
     private let quitCue: () -> Void
 
     init(
         appState: AppState,
+        listenNow: @escaping () -> Void,
         openCue: @escaping () -> Void,
         quitCue: @escaping () -> Void
     ) {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.appState = appState
+        self.listenNow = listenNow
         self.openCue = openCue
         self.quitCue = quitCue
         super.init()
@@ -28,6 +31,7 @@ final class CueStatusBarController: NSObject {
 
     func rebuildMenu() {
         let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Listen Now", action: #selector(listenNowAction), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Open Cue", action: #selector(openCueAction), keyEquivalent: "o"))
         menu.addItem(NSMenuItem(title: "Pause Cue", action: #selector(pauseCueAction), keyEquivalent: "p"))
         menu.addItem(NSMenuItem(title: privacyStatusTitle(), action: #selector(privacyStatusAction), keyEquivalent: ""))
@@ -39,6 +43,10 @@ final class CueStatusBarController: NSObject {
         statusItem.menu = menu
     }
 
+    func menuItemTitlesForTesting() -> [String] {
+        statusItem.menu?.items.map(\.title) ?? []
+    }
+
     private func privacyStatusTitle() -> String {
         guard let appState else {
             return "Privacy Status: Unknown"
@@ -46,6 +54,10 @@ final class CueStatusBarController: NSObject {
         let mode = appState.privacyMode.capitalized
         let audit = appState.onboardingStatus.auditRedactionEnabled ? "Audit Redacted" : "Audit Raw"
         return "Privacy Status: \(mode), \(audit)"
+    }
+
+    @objc private func listenNowAction() {
+        listenNow()
     }
 
     @objc private func openCueAction() {

@@ -177,6 +177,58 @@ final class VoiceInputControllerTests: XCTestCase {
         XCTAssertEqual(stops, 1)
     }
 
+    @MainActor
+    func testGlobalCueHotKeyInvokesListenNowCallback() {
+        var openedPalette = false
+        var listenedNow = false
+        let controller = HotKeyController()
+
+        controller.handleCueHotKey(
+            scope: .global,
+            openPalette: { openedPalette = true },
+            listenNow: { listenedNow = true }
+        )
+
+        XCTAssertFalse(openedPalette)
+        XCTAssertTrue(listenedNow)
+    }
+
+    @MainActor
+    func testLocalCueHotKeyKeepsOpeningPalette() {
+        var openedPalette = false
+        var listenedNow = false
+        let controller = HotKeyController()
+
+        controller.handleCueHotKey(
+            scope: .local,
+            openPalette: { openedPalette = true },
+            listenNow: { listenedNow = true }
+        )
+
+        XCTAssertTrue(openedPalette)
+        XCTAssertFalse(listenedNow)
+    }
+
+    @MainActor
+    func testStatusMenuContainsListenNowBeforeOpenCue() {
+        let appState = AppState()
+        let controller = CueStatusBarController(
+            appState: appState,
+            listenNow: {},
+            openCue: {},
+            quitCue: {}
+        )
+
+        let titles = controller.menuItemTitlesForTesting()
+
+        XCTAssertTrue(titles.contains("Listen Now"))
+        XCTAssertTrue(titles.contains("Open Cue"))
+        XCTAssertLessThan(
+            titles.firstIndex(of: "Listen Now")!,
+            titles.firstIndex(of: "Open Cue")!
+        )
+    }
+
     func testAudioTapHandlerCanRunOffMainQueue() async {
         let request = SFSpeechAudioBufferRecognitionRequest()
         let handler = VoiceAudioTap.makeAppendHandler(for: request)
