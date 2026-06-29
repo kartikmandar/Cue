@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cue Local Demo Dashboard</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f7f7f4;
+        color: #1f2933;
+      }
+
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 32px 20px;
+      }
+
+      header,
+      section {
+        border-bottom: 1px solid #d7d7cf;
+        padding: 18px 0;
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 10px;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 22px;
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      textarea {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 96px;
+        border: 1px solid #9da4ae;
+        border-radius: 6px;
+        padding: 10px;
+        font: inherit;
+      }
+
+      button {
+        margin-top: 10px;
+        border: 1px solid #536471;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #1f2933;
+        padding: 8px 12px;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Cue Local Demo Dashboard</h1>
+        <p>Status summary: all demo data is synthetic and safe to inspect.</p>
+      </header>
+
+      <section aria-labelledby="tasks-heading">
+        <h2 id="tasks-heading">Open Tasks</h2>
+        <ul>
+          <li>Confirm the document workflow opens TextEdit before typing.</li>
+          <li>Summarize this dashboard before proposing any field change.</li>
+          <li>Keep Terminal handoff workflows read-only by default.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="form-heading">
+        <h2 id="form-heading">Demo-Safe Form</h2>
+        <label for="demo-status-note">Status note</label>
+        <textarea id="demo-status-note" name="demo-status-note">Ready for review.</textarea>
+        <button type="button">Save local note</button>
+      </section>
+    </main>
+  </body>
+</html>

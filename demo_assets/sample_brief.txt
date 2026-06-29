@@ -1,0 +1,13 @@
+Cue Demo Brief
+
+Goal: show a blind-first Mac work operator that opens local work materials,
+summarizes them, proposes safe next actions, and waits for confirmation before
+changing anything.
+
+Demo tasks:
+- Prepare a TextEdit title for Cue.
+- Review the local dashboard status.
+- Prepare a read-only Claude Code prompt for this project.
+
+Privacy boundary: all content in this brief is local, synthetic, and safe for a
+recorded hackathon demo.

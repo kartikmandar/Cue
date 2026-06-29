@@ -1,0 +1,17 @@
+Sample Service Agreement
+
+This synthetic agreement is for the Cue local demo only. It contains no private
+data, credentials, customer records, payment details, or legal advice.
+
+Parties: Demo Client and Demo Studio.
+
+Scope of work: Demo Studio will prepare a local accessibility workflow review
+for a sample dashboard and a sample document.
+
+Renewal notice: either party may request changes by July 15, 2026.
+
+Demo obligations:
+- Summaries must identify relevant sections without changing the source file.
+- Field filling is allowed only in the local demo dashboard after confirmation.
+- Terminal workflows remain read-only unless terminal write is explicitly
+  enabled and confirmed.
