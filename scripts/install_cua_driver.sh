@@ -15,8 +15,10 @@ open_cua_app_if_present() {
   local app_path
   for app_path in \
     "/Applications/Cua.app" \
+    "/Applications/CuaDriver.app" \
     "/Applications/Cua Driver.app" \
     "$HOME/Applications/Cua.app" \
+    "$HOME/Applications/CuaDriver.app" \
     "$HOME/Applications/Cua Driver.app"; do
     if [[ -d "$app_path" ]]; then
       log "Opening Cua app: $app_path"
