@@ -1,4 +1,5 @@
 import AVFoundation
+import AppKit
 import Speech
 import XCTest
 @testable import CueApp
@@ -39,6 +40,112 @@ final class VoiceInputControllerTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testStopDuringPermissionRequestCancelsPendingStart() async throws {
+        let permissionRequester = DeferredVoicePermissionRequester()
+        let controller = VoiceInputController(
+            speechRecognizer: nil,
+            permissionRequester: permissionRequester
+        )
+
+        controller.startListening()
+        XCTAssertEqual(controller.state, .requestingPermission)
+
+        controller.stopListening()
+        XCTAssertEqual(controller.state, .idle)
+
+        permissionRequester.resolve(granted: true)
+        try await Task.sleep(nanoseconds: 20_000_000)
+
+        XCTAssertEqual(controller.state, .idle)
+        XCTAssertNil(controller.errorMessage)
+    }
+
+    @MainActor
+    func testPushToTalkShortcutStartsOnceAndStopsOnRelease() {
+        var starts = 0
+        var stops = 0
+        let shortcut = PushToTalkShortcutController(
+            isEnabled: { true },
+            startListening: { starts += 1 },
+            stopListening: { stops += 1 }
+        )
+
+        XCTAssertTrue(
+            shortcut.handleKeyEvent(
+                type: .keyDown,
+                keyCode: PushToTalkShortcutController.spaceKeyCode,
+                modifierFlags: [],
+                isRepeat: false
+            )
+        )
+        XCTAssertTrue(
+            shortcut.handleKeyEvent(
+                type: .keyDown,
+                keyCode: PushToTalkShortcutController.spaceKeyCode,
+                modifierFlags: [],
+                isRepeat: true
+            )
+        )
+        XCTAssertEqual(starts, 1)
+        XCTAssertEqual(stops, 0)
+
+        XCTAssertTrue(
+            shortcut.handleKeyEvent(
+                type: .keyUp,
+                keyCode: PushToTalkShortcutController.spaceKeyCode,
+                modifierFlags: [],
+                isRepeat: false
+            )
+        )
+
+        XCTAssertEqual(starts, 1)
+        XCTAssertEqual(stops, 1)
+    }
+
+    @MainActor
+    func testPushToTalkShortcutIgnoresModifiedSpaceButStopsAfterDisable() {
+        var starts = 0
+        var stops = 0
+        var enabled = true
+        let shortcut = PushToTalkShortcutController(
+            isEnabled: { enabled },
+            startListening: { starts += 1 },
+            stopListening: { stops += 1 }
+        )
+
+        XCTAssertFalse(
+            shortcut.handleKeyEvent(
+                type: .keyDown,
+                keyCode: PushToTalkShortcutController.spaceKeyCode,
+                modifierFlags: [.command, .shift],
+                isRepeat: false
+            )
+        )
+        XCTAssertEqual(starts, 0)
+
+        XCTAssertTrue(
+            shortcut.handleKeyEvent(
+                type: .keyDown,
+                keyCode: PushToTalkShortcutController.spaceKeyCode,
+                modifierFlags: [],
+                isRepeat: false
+            )
+        )
+        enabled = false
+        XCTAssertTrue(
+            shortcut.handleKeyEvent(
+                type: .keyUp,
+                keyCode: PushToTalkShortcutController.spaceKeyCode,
+                modifierFlags: [],
+                isRepeat: false
+            )
+        )
+
+        XCTAssertEqual(starts, 1)
+        XCTAssertEqual(stops, 1)
+    }
+
     func testAudioTapHandlerCanRunOffMainQueue() async {
         let request = SFSpeechAudioBufferRecognitionRequest()
         let handler = VoiceAudioTap.makeAppendHandler(for: request)
@@ -65,6 +172,38 @@ final class VoiceInputControllerTests: XCTestCase {
             try await Task.sleep(nanoseconds: 10_000_000)
         }
         XCTAssertTrue(condition())
+    }
+}
+
+private final class DeferredVoicePermissionRequester: VoicePermissionRequesting, @unchecked Sendable {
+    private var speechContinuation: CheckedContinuation<Bool, Never>?
+    private var microphoneContinuation: CheckedContinuation<Bool, Never>?
+    private var resolvedGrant: Bool?
+
+    func requestSpeechRecognitionPermission() async -> Bool {
+        if let resolvedGrant {
+            return resolvedGrant
+        }
+        return await withCheckedContinuation { continuation in
+            speechContinuation = continuation
+        }
+    }
+
+    func requestMicrophonePermission() async -> Bool {
+        if let resolvedGrant {
+            return resolvedGrant
+        }
+        return await withCheckedContinuation { continuation in
+            microphoneContinuation = continuation
+        }
+    }
+
+    func resolve(granted: Bool) {
+        resolvedGrant = granted
+        speechContinuation?.resume(returning: granted)
+        speechContinuation = nil
+        microphoneContinuation?.resume(returning: granted)
+        microphoneContinuation = nil
     }
 }
 

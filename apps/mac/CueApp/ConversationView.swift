@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConversationView: View {
     @EnvironmentObject private var appState: AppState
+    @State private var voicePreferencesVisible = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +34,17 @@ struct ConversationView: View {
             Toggle("Speech", isOn: $appState.speechEnabled)
                 .toggleStyle(.switch)
                 .accessibilityLabel("Speech narration")
+            Button {
+                voicePreferencesVisible.toggle()
+            } label: {
+                Label("Voice", systemImage: "speaker.wave.2")
+            }
+            .popover(isPresented: $voicePreferencesVisible, arrowEdge: .bottom) {
+                VoicePreferencesView()
+                    .environmentObject(appState)
+                    .frame(width: 340)
+                    .padding(16)
+            }
             Button {
                 withAnimation(.easeInOut(duration: 0.18)) {
                     appState.detailsInspectorVisible.toggle()
@@ -67,6 +79,88 @@ struct ConversationView: View {
                 }
             }
         }
+    }
+}
+
+struct VoicePreferencesView: View {
+    @EnvironmentObject private var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("Voice", systemImage: "speaker.wave.2")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    appState.previewSpeechVoice()
+                } label: {
+                    Label("Preview", systemImage: "play.circle")
+                }
+            }
+
+            Picker("Voice", selection: Binding(
+                get: { appState.speechPreferences.voiceIdentifier ?? "" },
+                set: { appState.setSpeechVoiceIdentifier($0.nilIfEmpty) }
+            )) {
+                Text("System Default").tag("")
+                ForEach(appState.speechVoiceOptions) { voice in
+                    Text(voice.displayName).tag(voice.identifier)
+                }
+            }
+            .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Rate")
+                    Spacer()
+                    Text(rateLabel)
+                        .foregroundStyle(.secondary)
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.speechPreferences.rate) },
+                        set: { appState.setSpeechRate(Float($0)) }
+                    ),
+                    in: Double(SpeechPreferences.minimumRate)...Double(SpeechPreferences.maximumRate)
+                )
+                .accessibilityLabel("Speech rate")
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Pitch")
+                    Spacer()
+                    Text(pitchLabel)
+                        .foregroundStyle(.secondary)
+                }
+                Slider(
+                    value: Binding(
+                        get: { Double(appState.speechPreferences.pitchMultiplier) },
+                        set: { appState.setSpeechPitchMultiplier(Float($0)) }
+                    ),
+                    in: Double(SpeechPreferences.minimumPitchMultiplier)...Double(SpeechPreferences.maximumPitchMultiplier)
+                )
+                .accessibilityLabel("Speech pitch")
+            }
+
+            HStack {
+                Spacer()
+                Button {
+                    appState.resetSpeechPreferences()
+                } label: {
+                    Label("Reset", systemImage: "arrow.counterclockwise")
+                }
+            }
+        }
+        .font(.callout)
+    }
+
+    private var rateLabel: String {
+        "\(Int((appState.speechPreferences.rate * 100).rounded()))%"
+    }
+
+    private var pitchLabel: String {
+        String(format: "%.2fx", appState.speechPreferences.pitchMultiplier)
     }
 }
 
@@ -111,6 +205,12 @@ private struct ConversationMessageView: View {
         case .assistant:
             Color(nsColor: .controlBackgroundColor)
         }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 
@@ -180,6 +280,7 @@ private struct ActionPreviewCard: View {
 private struct VoiceComposerView: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject var voiceInputController: VoiceInputController
+    @State private var pushToTalkShortcutController: PushToTalkShortcutController?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -209,20 +310,41 @@ private struct VoiceComposerView: View {
             guard appState.inputMode == .voice else { return }
             appState.commandText = transcript
         }
+        .onAppear {
+            installPushToTalkShortcut()
+        }
+        .onDisappear {
+            pushToTalkShortcutController?.stop()
+            pushToTalkShortcutController = nil
+        }
+        .onChange(of: appState.inputMode) { _, inputMode in
+            if inputMode != .voice {
+                pushToTalkShortcutController?.release()
+            }
+        }
     }
 
     private var voiceControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 14) {
                 Button {
-                    toggleListening()
+                    // Press and release are handled by the hold gesture below.
                 } label: {
-                    Label(microphoneTitle, systemImage: voiceInputController.isListening ? "stop.circle.fill" : "mic.circle.fill")
+                    Label(microphoneTitle, systemImage: voiceInputController.isRecordingSessionActive ? "stop.circle.fill" : "mic.circle.fill")
                         .font(.headline)
                         .frame(minWidth: 170, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.space, modifiers: [.command, .shift])
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            pressPushToTalk()
+                        }
+                        .onEnded { _ in
+                            releasePushToTalk()
+                        }
+                )
+                .help("Hold Space to talk; release to stop.")
                 .accessibilityLabel(microphoneTitle)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -291,7 +413,7 @@ private struct VoiceComposerView: View {
     }
 
     private var microphoneTitle: String {
-        voiceInputController.isListening ? "Stop Listening" : "Push to Talk"
+        voiceInputController.isRecordingSessionActive ? "Release to Stop" : "Hold to Talk"
     }
 
     private var voiceStatusText: String {
@@ -311,13 +433,47 @@ private struct VoiceComposerView: View {
         }
     }
 
-    private func toggleListening() {
-        if voiceInputController.isListening || voiceInputController.state == .requestingPermission {
-            voiceInputController.stopListening()
+    private func installPushToTalkShortcut() {
+        guard pushToTalkShortcutController == nil else { return }
+        let controller = PushToTalkShortcutController(
+            isEnabled: {
+                appState.inputMode == .voice
+            },
+            startListening: {
+                beginPushToTalk()
+            },
+            stopListening: {
+                endPushToTalk()
+            }
+        )
+        controller.start()
+        pushToTalkShortcutController = controller
+    }
+
+    private func pressPushToTalk() {
+        if let pushToTalkShortcutController {
+            pushToTalkShortcutController.press()
         } else {
-            voiceInputController.clearTranscript()
-            appState.commandText = ""
-            voiceInputController.startListening()
+            beginPushToTalk()
         }
+    }
+
+    private func releasePushToTalk() {
+        if let pushToTalkShortcutController {
+            pushToTalkShortcutController.release()
+        } else {
+            endPushToTalk()
+        }
+    }
+
+    private func beginPushToTalk() {
+        guard appState.inputMode == .voice else { return }
+        voiceInputController.clearTranscript()
+        appState.commandText = ""
+        voiceInputController.startListening()
+    }
+
+    private func endPushToTalk() {
+        voiceInputController.stopListening()
     }
 }

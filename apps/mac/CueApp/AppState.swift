@@ -17,6 +17,8 @@ final class AppState: ObservableObject {
     @Published var currentSession: CueSessionState?
     @Published var lastResponse: CueWorkflowPreviewResponse?
     @Published var speechEnabled = true
+    @Published var speechPreferences: SpeechPreferences
+    @Published var speechVoiceOptions: [SpeechVoiceOption]
     @Published var privacyMode = "strict"
     @Published var pendingApproval = false
     @Published var focusStatus: CueFocusStatus?
@@ -27,17 +29,22 @@ final class AppState: ObservableObject {
     private let backendClient: any BackendClientProtocol
     private let permissionChecker: PermissionChecker
     private let speechController: SpeechController
+    private let speechPreferenceStore: SpeechPreferenceStore
     let voiceInputController: VoiceInputController
 
     init(
         backendClient: any BackendClientProtocol = BackendClient(),
         permissionChecker: PermissionChecker = PermissionChecker(),
         speechController: SpeechController = SpeechController(),
+        speechPreferenceStore: SpeechPreferenceStore = SpeechPreferenceStore(),
         voiceInputController: VoiceInputController = VoiceInputController()
     ) {
         self.backendClient = backendClient
         self.permissionChecker = permissionChecker
         self.speechController = speechController
+        self.speechPreferenceStore = speechPreferenceStore
+        self.speechPreferences = speechPreferenceStore.load()
+        self.speechVoiceOptions = SpeechController.availableVoices()
         self.voiceInputController = voiceInputController
         refreshLocalStatus()
     }
@@ -170,6 +177,48 @@ final class AppState: ObservableObject {
         phase = .paused
     }
 
+    func setSpeechVoiceIdentifier(_ voiceIdentifier: String?) {
+        updateSpeechPreferences(
+            SpeechPreferences(
+                voiceIdentifier: voiceIdentifier,
+                rate: speechPreferences.rate,
+                pitchMultiplier: speechPreferences.pitchMultiplier
+            )
+        )
+    }
+
+    func setSpeechRate(_ rate: Float) {
+        updateSpeechPreferences(
+            SpeechPreferences(
+                voiceIdentifier: speechPreferences.voiceIdentifier,
+                rate: rate,
+                pitchMultiplier: speechPreferences.pitchMultiplier
+            )
+        )
+    }
+
+    func setSpeechPitchMultiplier(_ pitchMultiplier: Float) {
+        updateSpeechPreferences(
+            SpeechPreferences(
+                voiceIdentifier: speechPreferences.voiceIdentifier,
+                rate: speechPreferences.rate,
+                pitchMultiplier: pitchMultiplier
+            )
+        )
+    }
+
+    func resetSpeechPreferences() {
+        updateSpeechPreferences(.defaults)
+    }
+
+    func previewSpeechVoice() {
+        speechController.speak(
+            "This is Cue using the selected voice.",
+            enabled: true,
+            preferences: speechPreferences
+        )
+    }
+
     func apply(_ session: CueSessionState) {
         currentSession = session
         phase = session.phase
@@ -194,7 +243,12 @@ final class AppState: ObservableObject {
     }
 
     private func speak(_ text: String?) {
-        speechController.speak(text, enabled: speechEnabled)
+        speechController.speak(text, enabled: speechEnabled, preferences: speechPreferences)
+    }
+
+    private func updateSpeechPreferences(_ preferences: SpeechPreferences) {
+        speechPreferences = preferences
+        speechPreferenceStore.save(preferences)
     }
 }
 

@@ -51,7 +51,11 @@ final class VoiceInputController: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
 
     var isListening: Bool {
-        state == .listening || state == .transcribing
+        state == .listening
+    }
+
+    var isRecordingSessionActive: Bool {
+        state == .requestingPermission || state == .listening
     }
 
     private let speechRecognizer: SFSpeechRecognizer?
@@ -59,6 +63,7 @@ final class VoiceInputController: NSObject, ObservableObject {
     private let permissionRequester: any VoicePermissionRequesting
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private var startRequestID: UUID?
 
     init(
         speechRecognizer: SFSpeechRecognizer? = SFSpeechRecognizer(),
@@ -71,12 +76,14 @@ final class VoiceInputController: NSObject, ObservableObject {
     }
 
     func startListening() {
-        guard !isListening else { return }
+        guard !isRecordingSessionActive else { return }
+        let requestID = UUID()
+        startRequestID = requestID
         state = .requestingPermission
         errorMessage = nil
 
         Task {
-            let granted = await requestPermissions()
+            guard let granted = await requestPermissions(for: requestID) else { return }
             guard granted else {
                 state = .unavailable
                 errorMessage = "Microphone or speech recognition permission is not available."
@@ -94,13 +101,15 @@ final class VoiceInputController: NSObject, ObservableObject {
     }
 
     func stopListening() {
-        guard isListening || state == .requestingPermission else { return }
+        guard isRecordingSessionActive else { return }
+        startRequestID = nil
         recognitionRequest?.endAudio()
         stopAudio()
         state = transcript.isEmpty ? .idle : .transcribing
     }
 
     func cancelListening() {
+        startRequestID = nil
         transcript = ""
         recognitionTask?.cancel()
         stopAudio()
@@ -114,19 +123,23 @@ final class VoiceInputController: NSObject, ObservableObject {
         }
     }
 
-    private func requestPermissions() async -> Bool {
+    private func requestPermissions(for requestID: UUID) async -> Bool? {
         let speech = await permissionRequester.requestSpeechRecognitionPermission()
+        guard startRequestID == requestID else { return nil }
         let microphone = await permissionRequester.requestMicrophonePermission()
+        guard startRequestID == requestID else { return nil }
         return speech && microphone
     }
 
     private func beginRecognition() throws {
         guard let speechRecognizer else {
+            startRequestID = nil
             state = .unavailable
             errorMessage = "Speech recognition is not available on this Mac."
             return
         }
         guard speechRecognizer.isAvailable else {
+            startRequestID = nil
             state = .unavailable
             errorMessage = "Speech recognition is temporarily unavailable."
             return
@@ -152,6 +165,7 @@ final class VoiceInputController: NSObject, ObservableObject {
         audioEngine.prepare()
         try audioEngine.start()
         state = .listening
+        startRequestID = nil
 
         recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
             Task { @MainActor in

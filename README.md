@@ -43,9 +43,10 @@ Build and launch the macOS shell from Xcode through Pixi:
 pixi run xcode
 ```
 
-The app opens to a voice-first conversation. Use `Push to Talk` to dictate a
-request, review the transcript, then send it to Cue. `Type Instead` keeps a full
-keyboard fallback in the same chat, but voice is the default mode.
+The app opens to a voice-first conversation. Hold `Space` or the `Hold to Talk`
+button to dictate a request, release to stop recording, review the transcript,
+then send it to Cue. `Type Instead` keeps a full keyboard fallback in the same
+chat, but voice is the default mode.
 
 Voice input uses macOS Microphone and Speech Recognition permissions. The first
 push-to-talk attempt may show system permission prompts; the onboarding and

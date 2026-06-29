@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @EnvironmentObject private var appState: AppState
+    @State private var voicePreferencesVisible = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -96,6 +97,18 @@ struct OnboardingView: View {
 
                 Toggle("Speech", isOn: $appState.speechEnabled)
                     .toggleStyle(.switch)
+
+                Button {
+                    voicePreferencesVisible.toggle()
+                } label: {
+                    Label("Voice", systemImage: "speaker.wave.2")
+                }
+                .popover(isPresented: $voicePreferencesVisible, arrowEdge: .bottom) {
+                    VoicePreferencesView()
+                        .environmentObject(appState)
+                        .frame(width: 340)
+                        .padding(16)
+                }
 
                 Toggle("Privacy", isOn: Binding(
                     get: { appState.privacyMode == "strict" },

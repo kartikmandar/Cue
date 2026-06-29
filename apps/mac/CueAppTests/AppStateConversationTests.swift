@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import CueApp
 
@@ -52,6 +53,55 @@ final class AppStateConversationTests: XCTestCase {
         XCTAssertEqual(appState.conversationMessages.suffix(2).map(\.role), [.user, .assistant])
         XCTAssertEqual(appState.conversationMessages.last?.mode, .actionPreview)
         XCTAssertEqual(appState.conversationMessages.last?.session?.sessionID, "session-123")
+    }
+
+    @MainActor
+    func testSpeechPreferencesPersistVoiceRateAndPitch() {
+        let suiteName = "CueSpeechPreferences-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = SpeechPreferenceStore(userDefaults: defaults)
+        let expected = SpeechPreferences(
+            voiceIdentifier: "com.apple.voice.compact.en-US.Samantha",
+            rate: 0.42,
+            pitchMultiplier: 1.18
+        )
+
+        store.save(expected)
+
+        XCTAssertEqual(store.load(), expected)
+    }
+
+    @MainActor
+    func testSpeechControllerAppliesSelectedVoiceRateAndPitch() {
+        guard let voiceIdentifier = AVSpeechSynthesisVoice.speechVoices().first?.identifier else {
+            XCTFail("Expected macOS to expose at least one speech voice.")
+            return
+        }
+        let synthesizer = CapturingSpeechSynthesizer()
+        let controller = SpeechController(synthesizer: synthesizer)
+        let preferences = SpeechPreferences(
+            voiceIdentifier: voiceIdentifier,
+            rate: 0.42,
+            pitchMultiplier: 1.18
+        )
+
+        controller.speak("Cue narration", enabled: true, preferences: preferences)
+
+        let utterance = synthesizer.spokenUtterances.first
+        XCTAssertEqual(utterance?.speechString, "Cue narration")
+        XCTAssertEqual(utterance?.voice?.identifier, preferences.voiceIdentifier)
+        XCTAssertEqual(utterance?.rate ?? 0, preferences.rate, accuracy: 0.001)
+        XCTAssertEqual(utterance?.pitchMultiplier ?? 0, preferences.pitchMultiplier, accuracy: 0.001)
+    }
+}
+
+private final class CapturingSpeechSynthesizer: AVSpeechSynthesizer {
+    private(set) var spokenUtterances: [AVSpeechUtterance] = []
+
+    override func speak(_ utterance: AVSpeechUtterance) {
+        spokenUtterances.append(utterance)
     }
 }
 
