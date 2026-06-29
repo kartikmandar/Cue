@@ -2,6 +2,39 @@ import AVFoundation
 import Foundation
 import Speech
 
+protocol VoicePermissionRequesting: Sendable {
+    func requestSpeechRecognitionPermission() async -> Bool
+    func requestMicrophonePermission() async -> Bool
+}
+
+struct SystemVoicePermissionRequester: VoicePermissionRequesting {
+    func requestSpeechRecognitionPermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status == .authorized)
+            }
+        }
+    }
+
+    func requestMicrophonePermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+}
+
+enum VoiceAudioTap {
+    static func makeAppendHandler(
+        for request: SFSpeechAudioBufferRecognitionRequest
+    ) -> AVAudioNodeTapBlock {
+        { [weak request] buffer, _ in
+            request?.append(buffer)
+        }
+    }
+}
+
 enum VoiceInputState: String, Equatable {
     case idle
     case requestingPermission
@@ -23,15 +56,18 @@ final class VoiceInputController: NSObject, ObservableObject {
 
     private let speechRecognizer: SFSpeechRecognizer?
     private let audioEngine: AVAudioEngine
+    private let permissionRequester: any VoicePermissionRequesting
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
 
     init(
         speechRecognizer: SFSpeechRecognizer? = SFSpeechRecognizer(),
-        audioEngine: AVAudioEngine = AVAudioEngine()
+        audioEngine: AVAudioEngine = AVAudioEngine(),
+        permissionRequester: any VoicePermissionRequesting = SystemVoicePermissionRequester()
     ) {
         self.speechRecognizer = speechRecognizer
         self.audioEngine = audioEngine
+        self.permissionRequester = permissionRequester
     }
 
     func startListening() {
@@ -79,27 +115,9 @@ final class VoiceInputController: NSObject, ObservableObject {
     }
 
     private func requestPermissions() async -> Bool {
-        async let speechGranted = requestSpeechRecognitionPermission()
-        async let microphoneGranted = requestMicrophonePermission()
-        let speech = await speechGranted
-        let microphone = await microphoneGranted
+        let speech = await permissionRequester.requestSpeechRecognitionPermission()
+        let microphone = await permissionRequester.requestMicrophonePermission()
         return speech && microphone
-    }
-
-    private func requestSpeechRecognitionPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status == .authorized)
-            }
-        }
-    }
-
-    private func requestMicrophonePermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                continuation.resume(returning: granted)
-            }
-        }
     }
 
     private func beginRecognition() throws {
@@ -124,9 +142,12 @@ final class VoiceInputController: NSObject, ObservableObject {
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak request] buffer, _ in
-            request?.append(buffer)
-        }
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: 1_024,
+            format: format,
+            block: VoiceAudioTap.makeAppendHandler(for: request)
+        )
 
         audioEngine.prepare()
         try audioEngine.start()
