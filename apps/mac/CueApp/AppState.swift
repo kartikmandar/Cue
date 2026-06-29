@@ -21,26 +21,26 @@ final class AppState: ObservableObject {
     @Published var lastErrorMessage: String?
 
     private let backendClient: BackendClient
+    private let permissionChecker: PermissionChecker
+    private let speechController: SpeechController
 
-    init(backendClient: BackendClient = BackendClient()) {
+    init(
+        backendClient: BackendClient = BackendClient(),
+        permissionChecker: PermissionChecker = PermissionChecker(),
+        speechController: SpeechController = SpeechController()
+    ) {
         self.backendClient = backendClient
+        self.permissionChecker = permissionChecker
+        self.speechController = speechController
         refreshLocalStatus()
     }
 
     func refreshLocalStatus() {
         let environment = ProcessInfo.processInfo.environment
-        privacyMode = environment["CUE_PRIVACY_MODE", default: "strict"]
+        let status = permissionChecker.snapshot()
+        privacyMode = status.strictPrivacyMode ? "strict" : environment["CUE_PRIVACY_MODE", default: "standard"]
         speechEnabled = environment["CUE_SPEAK"].map { $0 != "false" } ?? true
-        onboardingStatus = CueOnboardingStatus(
-            cuaStatus: Self.cuaStatus(),
-            accessibilityPermission: AXIsProcessTrusted() ? .ready : .needsPermission,
-            screenRecordingPermission: CGPreflightScreenCaptureAccess() ? .ready : .needsPermission,
-            cerebrasAPIKeyStatus: environment["CEREBRAS_API_KEY"].isNilOrEmpty ? .missing : .ready,
-            strictPrivacyMode: privacyMode.caseInsensitiveCompare("strict") == .orderedSame,
-            auditRedactionEnabled: environment["CUE_AUDIT_LOG_REDACTED"].map { $0 != "false" } ?? true,
-            terminalWriteDisabled: environment["CUE_ALLOW_TERMINAL_WRITE"].map { $0 != "true" } ?? true,
-            reviewerModeEnabled: environment["CUE_REVIEWER_MODE"].map { $0 == "true" } ?? false
-        )
+        onboardingStatus = status
     }
 
     func refreshBackendHealth() async {
@@ -65,6 +65,7 @@ final class AppState: ObservableObject {
             let response = try await backendClient.preview(command: command)
             lastResponse = response
             apply(response.session)
+            speak(response.session.narration?.speakableText ?? response.session.workflowPlan?.narration)
             lastErrorMessage = nil
         } catch {
             phase = .error
@@ -74,7 +75,7 @@ final class AppState: ObservableObject {
 
     func approveWorkflow() async {
         guard let sessionID = currentSession?.sessionID else { return }
-        await updateSession {
+        _ = await updateSession {
             try await backendClient.approve(sessionID: sessionID)
         }
     }
@@ -82,15 +83,31 @@ final class AppState: ObservableObject {
     func executeNextStep() async {
         guard let sessionID = currentSession?.sessionID else { return }
         phase = .acting
-        await updateSession {
+        let session = await updateSession {
             try await backendClient.next(sessionID: sessionID)
         }
+        speak(session?.lastVerification?.reason ?? session?.narration?.speakableText)
     }
 
     func cancelWorkflow() async {
         guard let sessionID = currentSession?.sessionID else { return }
-        await updateSession {
+        speechController.stop()
+        _ = await updateSession {
             try await backendClient.cancel(sessionID: sessionID)
+        }
+    }
+
+    func requestReviewerApproval() async {
+        guard let sessionID = currentSession?.sessionID else { return }
+        _ = await updateSession {
+            try await backendClient.requestReview(sessionID: sessionID)
+        }
+    }
+
+    func confirmReviewerApproval(approved: Bool) async {
+        guard let sessionID = currentSession?.sessionID else { return }
+        _ = await updateSession {
+            try await backendClient.confirmReviewer(sessionID: sessionID, approved: approved)
         }
     }
 
@@ -109,25 +126,21 @@ final class AppState: ObservableObject {
         auditSummary = session.auditSummary
     }
 
-    private func updateSession(_ operation: () async throws -> CueSessionState) async {
+    private func updateSession(_ operation: () async throws -> CueSessionState) async -> CueSessionState? {
         do {
             let session = try await operation()
             apply(session)
             lastErrorMessage = nil
+            return session
         } catch {
             phase = .error
             lastErrorMessage = error.localizedDescription
+            return nil
         }
     }
 
-    private static func cuaStatus() -> LocalStatus {
-        if FileManager.default.fileExists(atPath: "/Applications/Cua.app") {
-            return .ready
-        }
-        if NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.trycua.Cua") != nil {
-            return .ready
-        }
-        return .missing
+    private func speak(_ text: String?) {
+        speechController.speak(text, enabled: speechEnabled)
     }
 }
 

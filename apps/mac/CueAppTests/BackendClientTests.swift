@@ -75,7 +75,14 @@ final class BackendClientTests: XCTestCase {
             "redaction_applied": true
           },
           "confirmation_prompt": "Approve this workflow?",
-          "timing": { "backend_ms": 12 },
+          "timing": {
+            "model": "gemma-4-31b",
+            "latency_ms": 220,
+            "token_usage": 84,
+            "action_loop_ms": 31,
+            "verification_ms": 19,
+            "backend_ms": 12
+          },
           "audit_summary": ["TextEdit: type_text"],
           "audit_events": []
         }
@@ -100,6 +107,11 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(response.session.workflowPlan?.steps.first?.action.actionType, "type_text")
         XCTAssertEqual(response.session.focusStatus?.activeApp, "TextEdit")
         XCTAssertEqual(response.session.policyDecision?.redactionApplied, true)
+        XCTAssertEqual(response.session.timing?.model, "gemma-4-31b")
+        XCTAssertEqual(response.session.timing?.latencyMS, 220)
+        XCTAssertEqual(response.session.timing?.tokenUsage, 84)
+        XCTAssertEqual(response.session.timing?.actionLoopMS, 31)
+        XCTAssertEqual(response.session.timing?.verificationMS, 19)
     }
 
     func testWorkflowControlMethodsUseBackendRoutesAndDecodeResponses() async throws {

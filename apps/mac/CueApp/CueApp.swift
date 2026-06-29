@@ -7,7 +7,7 @@ struct CueApp: App {
 
     var body: some Scene {
         WindowGroup("Cue") {
-            OnboardingView()
+            CommandPaletteView()
                 .environmentObject(appState)
                 .onAppear {
                     appDelegate.configure(appState: appState)
@@ -19,6 +19,7 @@ struct CueApp: App {
 @MainActor
 final class CueAppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarController: CueStatusBarController?
+    private var hotKeyController: HotKeyController?
 
     func configure(appState: AppState) {
         guard statusBarController == nil else { return }
@@ -32,6 +33,11 @@ final class CueAppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         )
+        hotKeyController = HotKeyController()
+        hotKeyController?.start {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

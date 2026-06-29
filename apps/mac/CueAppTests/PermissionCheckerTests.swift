@@ -1,0 +1,31 @@
+import XCTest
+@testable import CueApp
+
+final class PermissionCheckerTests: XCTestCase {
+    func testSnapshotUsesInjectedEnvironmentWithoutPrompting() {
+        let checker = PermissionChecker(
+            environment: [
+                "CEREBRAS_API_KEY": "test-key",
+                "CUE_PRIVACY_MODE": "strict",
+                "CUE_AUDIT_LOG_REDACTED": "true",
+                "CUE_ALLOW_TERMINAL_WRITE": "false",
+                "CUE_REVIEWER_MODE": "true"
+            ],
+            fileExists: { path in path == "/Applications/Cua.app" },
+            applicationURLForBundleIdentifier: { _ in nil },
+            isAccessibilityTrusted: { true },
+            canRecordScreen: { false }
+        )
+
+        let status = checker.snapshot()
+
+        XCTAssertEqual(status.cuaStatus, .ready)
+        XCTAssertEqual(status.accessibilityPermission, .ready)
+        XCTAssertEqual(status.screenRecordingPermission, .needsPermission)
+        XCTAssertEqual(status.cerebrasAPIKeyStatus, .ready)
+        XCTAssertTrue(status.strictPrivacyMode)
+        XCTAssertTrue(status.auditRedactionEnabled)
+        XCTAssertTrue(status.terminalWriteDisabled)
+        XCTAssertTrue(status.reviewerModeEnabled)
+    }
+}

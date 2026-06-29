@@ -356,9 +356,19 @@ struct CueRiskSummary: Codable, Equatable {
 }
 
 struct CueTiming: Codable, Equatable {
+    let model: String?
+    let latencyMS: Int?
+    let tokenUsage: Int?
+    let actionLoopMS: Int?
+    let verificationMS: Int?
     let backendMS: Int?
 
     enum CodingKeys: String, CodingKey {
+        case model
+        case latencyMS = "latency_ms"
+        case tokenUsage = "token_usage"
+        case actionLoopMS = "action_loop_ms"
+        case verificationMS = "verification_ms"
         case backendMS = "backend_ms"
     }
 }
