@@ -3,10 +3,10 @@ name = "cue"
 version = "0.1.0"
 description = "Blind-first macOS desktop work operator powered by Cua Driver and Cerebras Gemma 4."
 channels = ["conda-forge"]
-platforms = [
-  { platform = "osx-arm64", osx = "26.5" },
-  { platform = "osx-64", osx = "26.5" },
-]
+platforms = ["osx-arm64", "osx-64"]
+
+[system-requirements]
+macos = "26.5"
 
 [dependencies]
 python = "3.14.*"
