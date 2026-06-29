@@ -40,6 +40,15 @@ class IntentAgent:
                 risk_reasons=["terminal workflows need approval"],
             )
 
+        if _is_app_launch_only(text):
+            return _intent(
+                normalized,
+                WorkflowCategory.APP_LAUNCH,
+                workflow_required=True,
+                risk_level="low",
+                reason="The request asks to open or activate an app.",
+            )
+
         if "pdf" in text:
             return _intent(
                 normalized,
@@ -127,6 +136,14 @@ def _requires_action(text: str) -> bool:
     return _contains_any(text, _APP_LAUNCH_TERMS + _STATE_CHANGE_TERMS)
 
 
+def _is_app_launch_only(text: str) -> bool:
+    return (
+        _contains_any(text, _APP_LAUNCH_TERMS)
+        and _contains_any(text, _APP_LAUNCH_TARGET_TERMS)
+        and not _contains_any(text, _STATE_CHANGE_TERMS)
+    )
+
+
 _ANSWER_TERMS = (
     "what is on my screen",
     "what's on my screen",
@@ -137,7 +154,32 @@ _ANSWER_TERMS = (
     "tell me what is on",
 )
 _APP_LAUNCH_TERMS = ("open ", "launch ", "activate ", "switch to ", "focus ")
-_STATE_CHANGE_TERMS = ("write", "type", "fill", "click", "set", "press")
+_STATE_CHANGE_TERMS = ("write", "type", "fill", "click", "set", "press", "add")
+_APP_LAUNCH_TARGET_TERMS = (
+    " app",
+    "textedit",
+    "text edit",
+    "notes",
+    "finder",
+    "safari",
+    "chrome",
+    "google chrome",
+    "terminal",
+    "calendar",
+    "reminders",
+    "mail",
+    "messages",
+    "contacts",
+    "facetime",
+    "maps",
+    "photos",
+    "music",
+    "calculator",
+    "dictionary",
+    "stickies",
+    "voice memos",
+    "quicktime player",
+)
 _DOCUMENT_TERMS = (
     "textedit",
     "document",

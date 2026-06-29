@@ -126,6 +126,14 @@ final class PushToTalkShortcutController {
         startListening()
     }
 
+    func toggle() {
+        if isPressed {
+            release()
+        } else if isEnabled() {
+            press()
+        }
+    }
+
     func release() {
         guard isPressed else { return }
         isPressed = false

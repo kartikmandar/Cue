@@ -104,6 +104,37 @@ final class VoiceInputControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testPushToTalkShortcutToggleStartsAndStopsRecording() {
+        var starts = 0
+        var stops = 0
+        let shortcut = PushToTalkShortcutController(
+            isEnabled: { true },
+            startListening: { starts += 1 },
+            stopListening: { stops += 1 }
+        )
+
+        shortcut.toggle()
+        XCTAssertEqual(starts, 1)
+        XCTAssertEqual(stops, 0)
+
+        shortcut.toggle()
+        XCTAssertEqual(starts, 1)
+        XCTAssertEqual(stops, 1)
+    }
+
+    @MainActor
+    func testLatePartialRecognitionResultAfterStopDoesNotReturnToListening() {
+        XCTAssertEqual(
+            VoiceInputController.stateAfterRecognitionResult(
+                isFinal: false,
+                isAudioEngineRunning: false,
+                transcript: "Open Notes"
+            ),
+            .transcribing
+        )
+    }
+
+    @MainActor
     func testPushToTalkShortcutIgnoresModifiedSpaceButStopsAfterDisable() {
         var starts = 0
         var stops = 0

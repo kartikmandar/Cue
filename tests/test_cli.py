@@ -5,7 +5,7 @@ from cue.agent_models import (
     WorkflowPlan,
     WorkflowStep,
 )
-from cue.cli import main
+from cue.cli import LocalCliPlanner, main
 from cue.config import Settings
 from cue.context import DesktopObservation
 from cue.focus import CursorPosition, FocusedElement
@@ -183,6 +183,23 @@ def test_cli_voice_mode_disabled_returns_clear_message(capsys):
     assert "CUE_ENABLE_VOICE_INPUT=true" in output
 
 
+def test_local_cli_planner_opens_notes_app_for_notes_launch_request():
+    settings = make_settings(
+        allowed_apps=["TextEdit", "Finder", "Safari", "Terminal", "Notes"]
+    )
+    planner = LocalCliPlanner(settings=settings)
+
+    plan = planner(
+        "open the notes app",
+        make_observation(app="CueApp", window="Cue", focus="Cue request"),
+    )
+
+    assert plan.workflow_category == WorkflowCategory.APP_LAUNCH
+    assert plan.steps[0].action.action_type == ActionType.OPEN_APP
+    assert plan.steps[0].action.payload == {"app_name": "Notes"}
+    assert plan.steps[0].action.expected_app == "Notes"
+
+
 def test_cli_next_without_approval_does_not_execute_state_changing_step(capsys):
     executor = FakeExecutor()
 
@@ -220,8 +237,6 @@ def test_cli_read_only_flag_prevents_execution_even_with_approval(capsys):
 
 
 def test_local_cli_planner_extracts_capitalized_document_text():
-    from cue.cli import LocalCliPlanner
-
     plan = LocalCliPlanner(settings=make_settings())(
         "Write Cue as the title",
         make_observation(),
@@ -232,8 +247,6 @@ def test_local_cli_planner_extracts_capitalized_document_text():
 
 
 def test_local_cli_planner_uses_textedit_document_recipe_for_task_16_prompt():
-    from cue.cli import LocalCliPlanner
-
     plan = LocalCliPlanner(settings=make_settings())(
         "Open TextEdit and type the project name Cue as a title, then put the cursor below it.",
         make_observation(app="Finder", window="Downloads", focus="Sidebar"),

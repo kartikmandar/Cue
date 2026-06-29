@@ -136,8 +136,13 @@ final class AppState: ObservableObject {
 
     func approveWorkflow() async {
         guard let sessionID = currentSession?.sessionID else { return }
-        _ = await updateSession {
+        let approvedSession = await updateSession {
             try await backendClient.approve(sessionID: sessionID)
+        }
+        if approvedSession?.phase == .awaitingStepApproval {
+            await executeNextStep()
+        } else {
+            speak(approvedSession?.narration?.speakableText)
         }
     }
 

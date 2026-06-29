@@ -328,23 +328,14 @@ private struct VoiceComposerView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 14) {
                 Button {
-                    // Press and release are handled by the hold gesture below.
+                    togglePushToTalk()
                 } label: {
                     Label(microphoneTitle, systemImage: voiceInputController.isRecordingSessionActive ? "stop.circle.fill" : "mic.circle.fill")
                         .font(.headline)
                         .frame(minWidth: 170, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            pressPushToTalk()
-                        }
-                        .onEnded { _ in
-                            releasePushToTalk()
-                        }
-                )
-                .help("Hold Space to talk; release to stop.")
+                .help("Click to start or stop listening. Hold Space to talk; release to stop.")
                 .accessibilityLabel(microphoneTitle)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -413,7 +404,7 @@ private struct VoiceComposerView: View {
     }
 
     private var microphoneTitle: String {
-        voiceInputController.isRecordingSessionActive ? "Release to Stop" : "Hold to Talk"
+        voiceInputController.isRecordingSessionActive ? "Stop Listening" : "Push to Talk"
     }
 
     private var voiceStatusText: String {
@@ -463,6 +454,16 @@ private struct VoiceComposerView: View {
             pushToTalkShortcutController.release()
         } else {
             endPushToTalk()
+        }
+    }
+
+    private func togglePushToTalk() {
+        if let pushToTalkShortcutController {
+            pushToTalkShortcutController.toggle()
+        } else if voiceInputController.isRecordingSessionActive {
+            endPushToTalk()
+        } else {
+            beginPushToTalk()
         }
     }
 

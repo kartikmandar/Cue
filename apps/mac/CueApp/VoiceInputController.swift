@@ -58,6 +58,20 @@ final class VoiceInputController: NSObject, ObservableObject {
         state == .requestingPermission || state == .listening
     }
 
+    static func stateAfterRecognitionResult(
+        isFinal: Bool,
+        isAudioEngineRunning: Bool,
+        transcript: String
+    ) -> VoiceInputState {
+        if isFinal {
+            return .transcribing
+        }
+        if isAudioEngineRunning {
+            return .listening
+        }
+        return transcript.isEmpty ? .idle : .transcribing
+    }
+
     private let speechRecognizer: SFSpeechRecognizer?
     private let audioEngine: AVAudioEngine
     private let permissionRequester: any VoicePermissionRequesting
@@ -172,7 +186,11 @@ final class VoiceInputController: NSObject, ObservableObject {
                 guard let self else { return }
                 if let result {
                     self.transcript = result.bestTranscription.formattedString
-                    self.state = result.isFinal ? .transcribing : .listening
+                    self.state = Self.stateAfterRecognitionResult(
+                        isFinal: result.isFinal,
+                        isAudioEngineRunning: self.audioEngine.isRunning,
+                        transcript: self.transcript
+                    )
                 }
                 if let error {
                     self.errorMessage = error.localizedDescription

@@ -56,6 +56,39 @@ final class AppStateConversationTests: XCTestCase {
     }
 
     @MainActor
+    func testApproveWorkflowRunsFirstApprovedStep() async {
+        let client = StubBackendClient(
+            approveResponse: CueSessionState(
+                sessionID: "session-123",
+                phase: .awaitingStepApproval
+            ),
+            nextResponse: CueSessionState(
+                sessionID: "session-123",
+                phase: .completed,
+                lastVerification: CueVerificationResult(
+                    status: "passed",
+                    reason: "Notes is active.",
+                    expected: "Notes is active.",
+                    actual: "Notes is active.",
+                    nextRecommendation: "Continue."
+                )
+            )
+        )
+        let appState = AppState(backendClient: client)
+        appState.currentSession = CueSessionState(
+            sessionID: "session-123",
+            phase: .awaitingWorkflowApproval
+        )
+
+        await appState.approveWorkflow()
+
+        XCTAssertEqual(client.approveRequests, ["session-123"])
+        XCTAssertEqual(client.nextRequests, ["session-123"])
+        XCTAssertEqual(appState.phase, .completed)
+        XCTAssertFalse(appState.pendingApproval)
+    }
+
+    @MainActor
     func testSpeechPreferencesPersistVoiceRateAndPitch() {
         let suiteName = "CueSpeechPreferences-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -105,6 +138,28 @@ private final class CapturingSpeechSynthesizer: AVSpeechSynthesizer {
     }
 }
 
+private extension CueSessionState {
+    func withSessionID(_ sessionID: String) -> CueSessionState {
+        CueSessionState(
+            sessionID: sessionID,
+            phase: phase,
+            workflowPlan: workflowPlan,
+            currentStepID: currentStepID,
+            verifiedSteps: verifiedSteps,
+            lastVerification: lastVerification,
+            narration: narration,
+            stateSummary: stateSummary,
+            focusStatus: focusStatus,
+            risk: risk,
+            policyDecision: policyDecision,
+            confirmationPrompt: confirmationPrompt,
+            timing: timing,
+            auditSummary: auditSummary,
+            auditEvents: auditEvents
+        )
+    }
+}
+
 private final class StubBackendClient: BackendClientProtocol, @unchecked Sendable {
     struct ChatRequest: Equatable {
         let command: String
@@ -112,7 +167,11 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
     }
 
     private let chatResponse: CueChatResponse
+    private let approveResponse: CueSessionState
+    private let nextResponse: CueSessionState
     private(set) var chatRequests: [ChatRequest] = []
+    private(set) var approveRequests: [String] = []
+    private(set) var nextRequests: [String] = []
 
     init(
         chatResponse: CueChatResponse = CueChatResponse(
@@ -121,9 +180,19 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
             mode: .conversation,
             session: nil,
             suggestedReplies: []
+        ),
+        approveResponse: CueSessionState = CueSessionState(
+            sessionID: "approved",
+            phase: .previewReady
+        ),
+        nextResponse: CueSessionState = CueSessionState(
+            sessionID: "next",
+            phase: .completed
         )
     ) {
         self.chatResponse = chatResponse
+        self.approveResponse = approveResponse
+        self.nextResponse = nextResponse
     }
 
     func health() async throws -> CueHealthResponse {
@@ -140,11 +209,13 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
     }
 
     func approve(sessionID: String, actor: String) async throws -> CueSessionState {
-        CueSessionState(sessionID: sessionID, phase: .previewReady)
+        approveRequests.append(sessionID)
+        return approveResponse.withSessionID(sessionID)
     }
 
     func next(sessionID: String) async throws -> CueSessionState {
-        CueSessionState(sessionID: sessionID, phase: .completed)
+        nextRequests.append(sessionID)
+        return nextResponse.withSessionID(sessionID)
     }
 
     func requestReview(sessionID: String, actor: String) async throws -> CueSessionState {

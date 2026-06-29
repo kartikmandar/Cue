@@ -39,6 +39,14 @@ def test_intent_agent_classifies_task_6_sample_requests(request_text, category):
     assert intent.intent == category.value
 
 
+@pytest.mark.parametrize("request_text", ["Open Notes", "open the notes app"])
+def test_intent_agent_treats_notes_launch_as_app_launch(request_text):
+    intent = classify_intent(normalize_input(request_text))
+
+    assert intent.workflow_category == WorkflowCategory.APP_LAUNCH
+    assert intent.workflow_required is True
+
+
 def test_intent_agent_marks_answer_only_requests_as_not_requiring_workflow():
     intent = IntentAgent().classify(normalize_input("What is on my screen?"))
 
