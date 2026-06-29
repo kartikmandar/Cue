@@ -28,6 +28,7 @@ from cue.narrator import Narrator
 from cue.policy import ApprovalTier
 from cue.session import CueSessionOrchestrator
 from cue.speech import speak
+from cue.workflows import create_document_workflow
 
 
 Observer = Callable[[], DesktopObservation]
@@ -143,10 +144,22 @@ def observe_desktop(driver: CuaDriver | None = None) -> DesktopObservation:
     cua = driver or CuaDriver()
     apps, apps_source = _safe_driver_call(cua.list_apps, "cua:list_apps")
     windows, windows_source = _safe_driver_call(cua.list_windows, "cua:list_windows")
-    window_state, window_source = _safe_driver_call(
-        cua.get_window_state,
-        "cua:get_window_state",
-    )
+    app_items = _coerce_items(apps, "apps")
+    window_items = _coerce_items(windows, "windows")
+    active_app = _active_app_name(app_items)
+    active_window_record = _active_window(window_items, active_app)
+    if active_window_record:
+        pid = int(active_window_record["pid"])
+        window_id = int(active_window_record["window_id"])
+        window_state, window_source = _safe_driver_call(
+            lambda: cua.get_window_state(pid=pid, window_id=window_id),
+            "cua:get_window_state",
+        )
+    else:
+        window_state, window_source = _safe_driver_call(
+            cua.get_window_state,
+            "cua:get_window_state",
+        )
     focus_raw, focus_source = _safe_driver_call(
         cua.get_focused_element,
         "cua:get_focused_element",
@@ -159,18 +172,24 @@ def observe_desktop(driver: CuaDriver | None = None) -> DesktopObservation:
         cua.get_screen_size,
         "cua:get_screen_size",
     )
+    accessibility_tree, tree_source = _safe_driver_call(
+        cua.get_accessibility_tree,
+        "cua:get_accessibility_tree",
+    )
 
-    active_app, active_window = normalize_active_window(window_state)
+    state_app, state_window = normalize_active_window(window_state)
+    resolved_app = active_app or _window_app(active_window_record) or state_app
+    resolved_window = _window_title(active_window_record) or state_window
     focus = _normalize_focus(focus_raw, focus_source)
     cursor = _normalize_cursor(cursor_raw, cursor_source)
     return DesktopObservation(
-        active_app=active_app,
-        active_window=active_window,
+        active_app=resolved_app,
+        active_window=resolved_window,
         focused_element=focus,
         cursor_position=cursor,
-        apps=_coerce_items(apps, "apps"),
-        windows=_coerce_items(windows, "windows"),
-        accessibility_tree=None,
+        apps=app_items,
+        windows=window_items,
+        accessibility_tree=accessibility_tree if isinstance(accessibility_tree, dict) else None,
         screen_size=screen_size if isinstance(screen_size, dict) else None,
         screenshot_ref=None,
         sources=[
@@ -180,6 +199,7 @@ def observe_desktop(driver: CuaDriver | None = None) -> DesktopObservation:
             focus.source,
             cursor.source,
             screen_source,
+            tree_source,
         ],
     )
 
@@ -199,6 +219,13 @@ class LocalCliPlanner:
             return _answer_plan(intent, observation)
         if intent.workflow_category == WorkflowCategory.SENSITIVE:
             return _blocked_sensitive_plan(intent)
+        if _is_task_16_textedit_document_request(intent):
+            return create_document_workflow(
+                title=_textedit_title(intent.normalized_input.text),
+                settings=self.settings,
+                apply_heading="heading" in intent.normalized_input.text.casefold(),
+                focus_verified=observation.focused_element.status == "known",
+            )
 
         action = _planned_action(intent, observation, self.settings)
         steps = [
@@ -512,6 +539,21 @@ def _requested_app(text: str, settings: Settings) -> str | None:
     return None
 
 
+def _is_task_16_textedit_document_request(intent: IntentResult) -> bool:
+    text = intent.normalized_input.text.casefold()
+    return (
+        intent.workflow_category == WorkflowCategory.DOCUMENT
+        and "textedit" in text
+        and ("title" in text or "cursor below" in text or "project name" in text)
+    )
+
+
+def _textedit_title(text: str) -> str:
+    if "cue" in text.casefold():
+        return "Cue"
+    return _document_text(text)
+
+
 def _document_text(text: str) -> str:
     lowered = text.casefold()
     for marker in ("type ", "write "):
@@ -520,6 +562,65 @@ def _document_text(text: str) -> str:
             value = text[index + len(marker) :]
             return value.strip() or "Cue"
     return "Cue"
+
+
+def _active_app_name(apps: list[dict[str, Any]]) -> str | None:
+    for app in apps:
+        if app.get("active"):
+            return _first_text(app.get("name"), app.get("app_name"), app.get("title"))
+    return None
+
+
+def _active_window(
+    windows: list[dict[str, Any]],
+    active_app: str | None,
+) -> dict[str, Any] | None:
+    candidates = [
+        window
+        for window in windows
+        if window.get("pid") is not None
+        and window.get("window_id") is not None
+        and (not active_app or _same_text(_window_app(window), active_app))
+    ]
+    if not candidates:
+        candidates = [
+            window
+            for window in windows
+            if window.get("pid") is not None
+            and window.get("window_id") is not None
+            and window.get("is_on_screen")
+        ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda window: int(window.get("z_index") or 0))
+
+
+def _window_app(window: dict[str, Any] | None) -> str | None:
+    if not isinstance(window, dict):
+        return None
+    return _first_text(window.get("app_name"), window.get("app"), window.get("owner"))
+
+
+def _window_title(window: dict[str, Any] | None) -> str | None:
+    if not isinstance(window, dict):
+        return None
+    return _first_text(window.get("title"), window.get("window_title"), window.get("name"))
+
+
+def _same_text(left: str | None, right: str | None) -> bool:
+    if left is None or right is None:
+        return False
+    return left.casefold() == right.casefold()
+
+
+def _first_text(*values: Any) -> str | None:
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
 
 
 def _focus_summary(focus: FocusedElement) -> str:

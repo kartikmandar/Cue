@@ -154,6 +154,11 @@ def normalize_active_window(window_state: dict[str, Any] | None) -> tuple[str | 
 def normalize_focused_element(raw: dict[str, Any] | None) -> FocusedElement:
     if not raw:
         return FocusedElement.unknown("Cua did not provide focused element.")
+    if raw.get("status") == "unknown":
+        return FocusedElement.unknown(
+            _first_text(raw.get("reason")) or "Cua did not provide focused element.",
+            source=_first_text(raw.get("source")) or "cua:get_window_state",
+        )
 
     element = _first_mapping(raw.get("focused_element"), raw.get("element")) or raw
     role = _first_text(element.get("role"), element.get("ax_role"), element.get("type"))
@@ -226,4 +231,3 @@ def _int_or_none(value: Any) -> int | None:
         return int(float(value))
     except (TypeError, ValueError):
         return None
-

@@ -23,17 +23,21 @@ Screen Recording has not been granted yet.
 
 ```bash
 cua-driver doctor
+cua-driver call check_permissions '{"prompt":false}'
 cua-driver call list_apps '{}'
 cua-driver call list_windows '{}'
-cua-driver call get_window_state '{}'
+cua-driver call list_windows '{"on_screen_only":true}'
+cua-driver call get_accessibility_tree '{}'
+cua-driver call get_window_state '{"pid":123,"window_id":456,"capture_mode":"ax","max_elements":100,"max_depth":10}'
 cua-driver call get_screen_size '{}'
-cua-driver call get_focused_element '{}'
 cua-driver call get_cursor_position '{}'
 ```
 
-`get_focused_element` and `get_cursor_position` are optional when supported by
-the installed Cua Driver version. If either tool is unsupported, record the
-driver's diagnostic output and continue.
+Replace the sample `pid` and `window_id` in `get_window_state` with values from
+the on-screen `list_windows` result. `get_window_state` is AX-only here so the
+smoke test does not capture a screenshot. `get_cursor_position` is optional when
+supported by the installed Cua Driver version. If a tool is unsupported, record
+the driver's diagnostic output and continue.
 
 ## Pixi Doctor
 
@@ -54,19 +58,20 @@ Only perform this section after the observation diagnostics are understood.
 1. Open TextEdit manually, or open it through Cua:
 
    ```bash
-   cua-driver call open_app '{"app_name":"TextEdit"}'
+   cua-driver call launch_app '{"bundle_id":"com.apple.TextEdit"}'
    ```
 
 2. Confirm focus before typing:
 
    ```bash
-   cua-driver call get_window_state '{}'
-   cua-driver call get_focused_element '{}'
+   cua-driver call list_windows '{"on_screen_only":true}'
+   cua-driver call get_window_state '{"pid":123,"window_id":456,"capture_mode":"ax","max_elements":100,"max_depth":10}'
    ```
 
-   Continue only if the active app/window is TextEdit and the focused element is
-   a new, safe text area. If focus is unknown, on a different app, or on existing
-   private content, stop without typing.
+   Replace the sample `pid` and `window_id` with TextEdit's values from
+   `list_windows`. Continue only if the active app/window is TextEdit and the AX
+   state shows a new, safe text area. If focus is unknown, on a different app, or
+   on existing private content, stop without typing.
 
 3. Ask for explicit approval to type one harmless word into TextEdit.
 
@@ -79,8 +84,8 @@ Only perform this section after the observation diagnostics are understood.
 5. Re-run observation to verify the active app remains TextEdit:
 
    ```bash
-   cua-driver call get_window_state '{}'
-   cua-driver call get_focused_element '{}'
+   cua-driver call list_windows '{"on_screen_only":true}'
+   cua-driver call get_window_state '{"pid":123,"window_id":456,"capture_mode":"ax","max_elements":100,"max_depth":10}'
    ```
 
 6. Close the TextEdit document without saving unless the demo operator chooses
@@ -92,11 +97,11 @@ Only perform this section after the observation diagnostics are understood.
 Date:
 Cua Driver path:
 cua-driver doctor:
+check_permissions:
 list_apps:
 list_windows:
 get_window_state:
 get_screen_size:
-get_focused_element:
 get_cursor_position:
 pixi run doctor:
 TextEdit action approved by:

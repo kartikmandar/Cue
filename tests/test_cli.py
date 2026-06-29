@@ -229,3 +229,23 @@ def test_local_cli_planner_extracts_capitalized_document_text():
 
     assert plan.steps[0].action.action_type == ActionType.TYPE_TEXT
     assert plan.steps[0].action.payload["text"] == "Cue as the title"
+
+
+def test_local_cli_planner_uses_textedit_document_recipe_for_task_16_prompt():
+    from cue.cli import LocalCliPlanner
+
+    plan = LocalCliPlanner(settings=make_settings())(
+        "Open TextEdit and type the project name Cue as a title, then put the cursor below it.",
+        make_observation(app="Finder", window="Downloads", focus="Sidebar"),
+    )
+
+    assert [step.action.action_type for step in plan.steps] == [
+        ActionType.OPEN_APP,
+        ActionType.VERIFY,
+        ActionType.TYPE_TEXT,
+        ActionType.VERIFY,
+    ]
+    assert plan.steps[0].action.payload == {"app_name": "TextEdit"}
+    assert plan.steps[2].action.payload == {"text": "Cue\n\n"}
+    assert "cursor below" in plan.steps[2].expected_outcome.casefold()
+    assert plan.confirmation_prompt.startswith("Approve opening TextEdit")

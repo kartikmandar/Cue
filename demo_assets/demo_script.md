@@ -15,8 +15,8 @@ from safe read-only staging.
 5. Use synthetic assets from `Cue/demo_assets/` only.
 6. Do not approve typing into TextEdit or pasting into Terminal until the
    recording owner is ready.
-7. Do not run live Cerebras/model calls unless the recording explicitly needs
-   them and the key is configured off-screen.
+7. Run live Cerebras/model calls only when the recording owner approves it and
+   the key is configured off-screen.
 
 ## Validation Snapshot
 
@@ -24,24 +24,24 @@ Latest non-interactive validation from June 29, 2026:
 
 | Item | Status | Evidence |
 |---|---|---|
-| Python suite | Passed | `pixi run test` collected 134 tests and all passed. |
-| Swift suite | Passed | `pixi run test-mac` executed 5 tests and `TEST SUCCEEDED`. |
-| Cua doctor | Blocked | `pixi run doctor` exited 127 because `cua-driver` was not found on `PATH`. |
+| Python suite | Passed | `pixi run test` collected 138 tests and all passed. |
+| Swift suite | Passed | `pixi run test-mac` executed 6 tests and `TEST SUCCEEDED`. |
+| Cua doctor | Passed | `pixi run doctor` found Cua Driver 0.6.8 with Accessibility and Screen Recording granted. |
 | Backend health | Passed | `GET /health` returned `{"status":"ok","app":"cue"}`. |
 | Release package | Passed | `pixi run package` created `dist/CueApp.zip`. |
-| Native app launch | Partially verified | `pixi run app` started the Release `CueApp.app` process. Menu-bar/onboarding visuals still need user-side confirmation. |
+| Native app launch | Passed | `pixi run app` started Release `CueApp.app`; Cua AX inspection found Cue onboarding/privacy/policy/permissions state without screenshots. |
+| Cerebras smoke | Passed | A live `gemma-4-31b` smoke call returned the expected response in 351 ms without printing `.env`. |
 | Demo dry run | Passed | `pixi run demo --dry-run` listed local PDF, dashboard, form, TextEdit, and Terminal targets without opening apps. |
 
 Read-only CLI/backend previews also showed:
 
 - Focus summary returns explicit unknown app/window/focus/cursor fields when
-  Cua Driver is unavailable.
+  Cua cannot observe a field.
 - `Type the password from this page.` is blocked with no workflow action.
 - Terminal/Claude Code handoff previews require approval and do not run a
   command by default.
-- TextEdit currently previews a shorter `type_text -> verify` path in the
-  CLI/backend fallback. The final video should confirm the native app recording
-  path before any typing is approved.
+- TextEdit previews `open TextEdit -> verify -> type title and move below ->
+  verify`, then waits for approval before any typing.
 
 ## Start The Demo Surface
 
@@ -137,5 +137,5 @@ screenshots by default."
 - Do not run live model calls from the demo helper itself.
 - Do not execute arbitrary Terminal commands; Terminal is opened only for safe
   handoff preparation.
-- Do not claim real Cerebras latency unless live model calls were explicitly
-  enabled and observed during the recording.
+- Do not claim real Cerebras latency in a recording unless live model calls were
+  explicitly enabled and observed for that recording take.

@@ -49,7 +49,7 @@ def test_observation_methods_send_expected_json_payloads():
         driver.list_apps()
         driver.list_windows()
         driver.get_screen_size()
-        driver.get_window_state()
+        driver.get_window_state(pid=123, window_id=456)
         driver.get_focused_element()
         driver.get_cursor_position()
         driver.get_accessibility_tree()
@@ -60,12 +60,74 @@ def test_observation_methods_send_expected_json_payloads():
         ("list_apps", {}),
         ("list_windows", {}),
         ("get_screen_size", {}),
-        ("get_window_state", {}),
-        ("get_focused_element", {}),
+        (
+            "get_window_state",
+            {
+                "capture_mode": "ax",
+                "max_depth": 10,
+                "max_elements": 100,
+                "pid": 123,
+                "window_id": 456,
+            },
+        ),
         ("get_cursor_position", {}),
         ("get_accessibility_tree", {}),
-        ("get_accessibility_tree", {"window_id": "window-123"}),
+        ("get_accessibility_tree", {}),
     ]
+
+
+def test_get_window_state_selects_frontmost_window_with_ax_only_payload():
+    with patch("cue.cua_driver.subprocess.run") as run:
+        run.side_effect = [
+            completed_process(
+                json.dumps(
+                    {
+                        "windows": [
+                            {
+                                "pid": 111,
+                                "window_id": 222,
+                                "z_index": 1,
+                                "is_on_screen": True,
+                            },
+                            {
+                                "pid": 333,
+                                "window_id": 444,
+                                "z_index": 9,
+                                "is_on_screen": True,
+                            },
+                        ]
+                    }
+                )
+            ),
+            completed_process('{"elements": []}'),
+        ]
+
+        result = CuaDriver().get_window_state()
+
+    calls = [call.args[0] for call in run.call_args_list]
+    assert result == {"elements": []}
+    assert [(call[2], json.loads(call[3])) for call in calls] == [
+        ("list_windows", {"on_screen_only": True}),
+        (
+            "get_window_state",
+            {
+                "capture_mode": "ax",
+                "max_depth": 10,
+                "max_elements": 100,
+                "pid": 333,
+                "window_id": 444,
+            },
+        ),
+    ]
+
+
+def test_get_focused_element_returns_explicit_unknown_without_driver_call():
+    with patch("cue.cua_driver.subprocess.run") as run:
+        result = CuaDriver().get_focused_element()
+
+    assert result["status"] == "unknown"
+    assert "standalone focused element" in result["reason"]
+    run.assert_not_called()
 
 
 def test_action_methods_send_expected_json_payloads():
@@ -77,25 +139,25 @@ def test_action_methods_send_expected_json_payloads():
         driver.open_file(Path("/tmp/cue-demo.txt"))
         driver.activate_app("Finder")
         driver.click(120, 250)
-        driver.type_text("Cue")
-        driver.hotkey(["command", "n"])
-        driver.press_key("escape")
-        driver.scroll("down", 3)
-        driver.set_value("element-1", "value")
-        driver.focus_element("element-2")
+        driver.type_text("Cue", pid=123, window_id=456)
+        driver.hotkey(["command", "n"], pid=123, window_id=456)
+        driver.press_key("escape", pid=123, window_id=456)
+        driver.scroll("down", 3, pid=123, window_id=456)
+        driver.set_value("1", "value", pid=123, window_id=456)
+        driver.focus_element("element-2", pid=123, window_id=456)
 
     calls = [call.args[0] for call in run.call_args_list]
     assert [(call[2], json.loads(call[3])) for call in calls] == [
-        ("open_app", {"app_name": "TextEdit"}),
-        ("open_file", {"path": "/tmp/cue-demo.txt"}),
-        ("activate_app", {"app_name": "Finder"}),
+        ("launch_app", {"name": "TextEdit"}),
+        ("launch_app", {"urls": ["/tmp/cue-demo.txt"]}),
+        ("launch_app", {"name": "Finder"}),
         ("click", {"x": 120, "y": 250}),
-        ("type_text", {"text": "Cue"}),
-        ("hotkey", {"keys": ["command", "n"]}),
-        ("press_key", {"key": "escape"}),
-        ("scroll", {"amount": 3, "direction": "down"}),
-        ("set_value", {"element_id": "element-1", "value": "value"}),
-        ("focus_element", {"element_id": "element-2"}),
+        ("type_text", {"pid": 123, "text": "Cue", "window_id": 456}),
+        ("hotkey", {"keys": ["command", "n"], "pid": 123, "window_id": 456}),
+        ("press_key", {"key": "escape", "pid": 123, "window_id": 456}),
+        ("scroll", {"amount": 3, "direction": "down", "pid": 123, "window_id": 456}),
+        ("set_value", {"element_index": 1, "pid": 123, "value": "value", "window_id": 456}),
+        ("focus_element", {"element_id": "element-2", "pid": 123, "window_id": 456}),
     ]
 
 

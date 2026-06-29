@@ -41,11 +41,20 @@ struct PermissionChecker {
     }
 
     private func cuaStatus() -> LocalStatus {
-        if fileExists("/Applications/Cua.app") {
-            return .ready
+        for path in [
+            "/Applications/Cua.app",
+            "/Applications/CuaDriver.app",
+            "\(NSHomeDirectory())/Applications/Cua.app",
+            "\(NSHomeDirectory())/Applications/CuaDriver.app"
+        ] {
+            if fileExists(path) {
+                return .ready
+            }
         }
-        if applicationURLForBundleIdentifier("com.trycua.Cua") != nil {
-            return .ready
+        for bundleIdentifier in ["com.trycua.Cua", "com.trycua.driver"] {
+            if applicationURLForBundleIdentifier(bundleIdentifier) != nil {
+                return .ready
+            }
         }
         return .missing
     }

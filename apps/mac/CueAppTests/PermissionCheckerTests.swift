@@ -28,4 +28,18 @@ final class PermissionCheckerTests: XCTestCase {
         XCTAssertTrue(status.terminalWriteDisabled)
         XCTAssertTrue(status.reviewerModeEnabled)
     }
+
+    func testSnapshotRecognizesInstalledCuaDriverAppBundle() {
+        let checker = PermissionChecker(
+            environment: [:],
+            fileExists: { path in path == "/Applications/CuaDriver.app" },
+            applicationURLForBundleIdentifier: { _ in nil },
+            isAccessibilityTrusted: { true },
+            canRecordScreen: { true }
+        )
+
+        let status = checker.snapshot()
+
+        XCTAssertEqual(status.cuaStatus, .ready)
+    }
 }

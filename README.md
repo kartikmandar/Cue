@@ -25,16 +25,16 @@ Last checked on June 29, 2026 from this checkout:
 
 | Check | Result | Notes |
 |---|---|---|
-| `pixi run test` | Passed | 134 Python tests passed; one Starlette test-client deprecation warning was reported. |
-| `pixi run test-mac` | Passed | 5 XCTest tests passed; Xcode printed non-fatal macOS service warnings. |
-| `pixi run doctor` | Blocked | Exit 127 because `cua-driver` was not found on `PATH`; run `pixi run install-cua`, grant macOS permissions, then repeat `pixi run doctor`. |
+| `pixi run test` | Passed | 138 Python tests passed; one Starlette test-client deprecation warning was reported. |
+| `pixi run test-mac` | Passed | 6 XCTest tests passed; Xcode printed non-fatal macOS service warnings. |
+| `pixi run doctor` | Passed | Cua Driver 0.6.8 is installed and can observe apps, windows, Accessibility state, screen size, and cursor position. |
 | `pixi run package` | Passed | Wrote `dist/CueApp.zip`. |
 | `pixi run backend` + `/health` | Passed | `GET /health` returned `{"status":"ok","app":"cue"}`. |
-| `pixi run app` | Partially verified | The Release `CueApp.app` process launched from `build/mac/Build/Products/Release/CueApp.app`; menu-bar/onboarding visuals were not screen-captured during validation to avoid recording private desktop content. |
+| `pixi run app` | Passed | The Release `CueApp.app` launched, and Cua AX inspection found Cue onboarding/privacy/policy/Accessibility/Screen Recording state without recording screenshots. |
 
-No live Cerebras/model calls were run during this validation pass. Backend
-previews used the deterministic local planner with a dummy API key, so real
-Cerebras latency was not measured.
+A live Cerebras smoke check was run off-screen after explicit approval. It used
+the configured `.env` key without printing it and returned a deterministic
+response from `gemma-4-31b` in 351 ms.
 
 ## Native App
 
@@ -95,13 +95,14 @@ complete the permission path, then run it again.
 Current validation diagnostic:
 
 ```text
-cua-driver was not found on PATH.
-Install or start it with: pixi run install-cua
+Cua Driver is installed at /Users/kartikmandar/.local/bin/cua-driver.
+Accessibility and Screen Recording permissions are granted.
+Doctor can observe apps, windows, Accessibility tree state, screen size, and cursor position.
 ```
 
-Do not record the final Cua-powered workflow until `pixi run doctor` can observe
-apps/windows or returns permission diagnostics that are visible in the app
-onboarding state.
+Do not record the final Cua-powered workflow if `pixi run doctor` regresses or
+if permissions are revoked. Re-run `pixi run install-cua` and use the app
+onboarding diagnostics to restore macOS permissions.
 
 ## Recording Validation Path
 
@@ -143,15 +144,11 @@ Use these prompts for the Task 16 story:
 
 Known validation gaps from this pass:
 
-- Cua Driver was not available on `PATH`, so real app/window observation and
-  Cua actions were blocked.
-- The local CLI/backend preview correctly blocks password typing and gates
-  Terminal actions behind approval, but the TextEdit preview currently shows a
-  shorter `type_text -> verify` plan instead of the full recording story
-  `open TextEdit -> verify -> type title -> verify -> cursor below -> verify`.
-  Treat that as a code-level gap outside Task 16's two-file scope.
-- Real Cerebras latency is unavailable until live model calls are explicitly
-  enabled for the recording.
+- Actual TextEdit typing and Terminal paste/write were intentionally not
+  executed during validation. Keep those stop points until the recording owner
+  approves the visible preview.
+- PDF/dashboard summary was validated through the safe read-only backend path;
+  record a richer app summary only against synthetic local demo material.
 
 ## Packaging
 

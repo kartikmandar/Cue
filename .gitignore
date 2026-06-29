@@ -1,4 +1,5 @@
 .env
+.cue/
 .pixi/
 .ruff_cache/
 .pytest_cache/
