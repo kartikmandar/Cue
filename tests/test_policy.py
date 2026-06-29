@@ -111,6 +111,22 @@ def test_terminal_write_is_blocked_unless_enabled():
     assert allowed.approval_tier == ApprovalTier.CONFIRM_SENSITIVE
 
 
+def test_terminal_handoff_prompt_can_be_typed_without_enabling_command_execution():
+    decision = evaluate_policy(
+        app="Terminal",
+        action_type="type_text",
+        summary=(
+            "Type a Claude Code handoff prompt without pressing Return; "
+            "do not execute a command."
+        ),
+        settings=make_settings(allow_terminal_write=False),
+    )
+
+    assert decision.allowed is True
+    assert decision.approval_tier == ApprovalTier.CONFIRM_SENSITIVE
+    assert any("terminal handoff" in reason for reason in decision.risk_reasons)
+
+
 def test_guardian_required_for_destructive_or_admin_actions():
     settings = make_settings()
 

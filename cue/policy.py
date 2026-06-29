@@ -155,6 +155,23 @@ def _audit_summary(app: str, action_type: str, summary: str | None) -> str:
     return f"{app}: {action_type}"
 
 
+def _is_terminal_handoff_prompt(summary: str | None) -> bool:
+    text = _normalized(summary)
+    has_prompt = "handoff prompt" in text or "claude code" in text
+    avoids_return = (
+        "without pressing return" in text
+        or "no return" in text
+        or '"press_return": false' in text
+    )
+    avoids_execution = (
+        "do not execute" in text
+        or "not executed" in text
+        or "no command has run" in text
+        or "no return key press" in text
+    )
+    return has_prompt and avoids_return and avoids_execution
+
+
 def _decision(
     *,
     allowed: bool,
@@ -267,6 +284,21 @@ def evaluate_policy(
         )
 
     if _normalized(app) == "terminal" and action in _TERMINAL_WRITE_ACTIONS:
+        if action == "type_text" and _is_terminal_handoff_prompt(summary):
+            return _decision(
+                allowed=True,
+                approval_tier=ApprovalTier.CONFIRM_SENSITIVE,
+                reason=(
+                    "Terminal handoff prompt typing is allowed only with sensitive "
+                    "confirmation and without pressing Return."
+                ),
+                risk_reasons=[
+                    "terminal handoff prompt requires sensitive confirmation"
+                ],
+                app=app,
+                action_type=action_type,
+                summary=summary,
+            )
         if not settings.allow_terminal_write:
             return _decision(
                 allowed=False,

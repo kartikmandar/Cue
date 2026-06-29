@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
+import subprocess
 from typing import Any
 
 from cue.actions import ActionType, CueAction, WorkflowCategory
@@ -87,6 +89,75 @@ _DEMO_ASSETS = {
 
 def demo_asset_path(asset: str) -> Path:
     return DEMO_ASSETS_DIR / _asset(asset).filename
+
+
+def _summary_text(asset: DemoAsset, source_text: str = "") -> str:
+    sections = ", ".join(asset.relevant_sections) or "none"
+    fields = ", ".join(asset.fields) if asset.fields else "none"
+    highlights = _source_highlights(source_text)
+    extracted = f" Highlights: {'; '.join(highlights)}." if highlights else ""
+    return (
+        f"{asset.summary}{extracted} Relevant sections: {sections}. "
+        f"Fields: {fields}. Next: {asset.next_action}"
+    )
+
+
+def _single_line(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _extract_asset_text(path: Path) -> str:
+    if path.suffix.casefold() == ".pdf":
+        return _extract_pdf_text(path)
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _extract_pdf_text(path: Path) -> str:
+    pdftotext = shutil.which("pdftotext")
+    if not pdftotext:
+        return ""
+    try:
+        result = subprocess.run(
+            [pdftotext, str(path), "-"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout
+
+
+def _source_highlights(text: str) -> list[str]:
+    terms = (
+        "maximum length",
+        "show cerebras speed",
+        "side-by-side",
+        "agent collaboration",
+        "multimodal intelligence",
+        "enterprise impact",
+        "production readiness",
+        "submission instructions",
+    )
+    lines: list[str] = []
+    seen: set[str] = set()
+    for raw_line in text.splitlines():
+        line = " ".join(raw_line.split())
+        if not line:
+            continue
+        folded = line.casefold()
+        if any(term in folded for term in terms) and folded not in seen:
+            lines.append(line)
+            seen.add(folded)
+        if len(lines) >= 6:
+            break
+    return lines
 
 
 def create_document_workflow(
@@ -237,6 +308,7 @@ def create_browser_pdf_workflow(
     settings = settings or load_settings()
     demo_asset = _asset(asset)
     path = demo_asset_path(demo_asset.key)
+    summary_text = _summary_text(demo_asset, _extract_asset_text(path))
     steps = [
         WorkflowStep(
             step_id=f"{demo_asset.key}-open",
@@ -273,6 +345,7 @@ def create_browser_pdf_workflow(
                 action_type=ActionType.NONE,
                 payload={
                     "summary": demo_asset.summary,
+                    "summary_text": summary_text,
                     "relevant_sections": demo_asset.relevant_sections,
                     "fields": demo_asset.fields,
                     "next_action": demo_asset.next_action,
@@ -285,7 +358,7 @@ def create_browser_pdf_workflow(
                 expected_window=path.name,
                 changes_state=False,
             ),
-            expected_outcome="Cue reports the relevant sections and one low-risk next action.",
+            expected_outcome=summary_text,
             verification_criteria="No state-changing action is required for the summary.",
         ),
     ]
@@ -317,8 +390,12 @@ def create_browser_pdf_workflow(
                 verification_criteria="No field value changes before confirmation.",
             )
         )
-        expected_outcome = "Cue summarizes the dashboard and asks before filling a field."
-        confirmation_prompt = "Approve opening the dashboard and reviewing the local field?"
+        expected_outcome = (
+            "Cue summarizes the dashboard and asks before filling a field."
+        )
+        confirmation_prompt = (
+            "Approve opening the dashboard and reviewing the local field?"
+        )
     elif fill_demo_fields and confirmed:
         steps.extend(
             [
@@ -393,6 +470,7 @@ def create_terminal_readonly_workflow(
     prompt: str | None = None,
     command_to_run: str | None = None,
     user_confirmed: bool = False,
+    type_prompt: bool = False,
 ) -> WorkflowPlan:
     settings = settings or load_settings()
     project = Path(project_path)
@@ -468,8 +546,12 @@ def create_terminal_readonly_workflow(
     if command_to_run:
         approval_tier = ApprovalTier.CONFIRM_SENSITIVE
         risk_reasons.append("terminal write explicitly enabled and confirmed")
-        expected_outcome = "Cue types the confirmed command text without pressing return."
-        policy_reason = "Terminal write is enabled and confirmed; execution still requires review."
+        expected_outcome = (
+            "Cue types the confirmed command text without pressing return."
+        )
+        policy_reason = (
+            "Terminal write is enabled and confirmed; execution still requires review."
+        )
         steps.append(
             WorkflowStep(
                 step_id="terminal-type-confirmed-command",
@@ -486,6 +568,42 @@ def create_terminal_readonly_workflow(
                 ),
                 expected_outcome="The confirmed command text is present but not executed.",
                 verification_criteria="Terminal shows the command text with no Return key press.",
+            )
+        )
+    elif type_prompt:
+        approval_tier = ApprovalTier.CONFIRM_SENSITIVE
+        risk_reasons.append("terminal handoff prompt requires sensitive confirmation")
+        expected_outcome = (
+            "Cue types a read-only Claude Code handoff prompt without pressing Return."
+        )
+        policy_reason = (
+            "Terminal handoff text is allowed only as a non-executing prompt with "
+            "sensitive confirmation."
+        )
+        steps.append(
+            WorkflowStep(
+                step_id="terminal-type-handoff-prompt",
+                title="Type Claude Code Handoff Prompt",
+                action=CueAction(
+                    action_type=ActionType.TYPE_TEXT,
+                    payload={
+                        "text": _single_line(prepared_prompt),
+                        "press_return": False,
+                        "terminal_write_kind": "handoff_prompt",
+                    },
+                    reason=(
+                        "Type a Claude Code handoff prompt without pressing Return; "
+                        "do not execute a command."
+                    ),
+                    expected_app="Terminal",
+                    changes_state=True,
+                ),
+                expected_outcome=(
+                    "The approved handoff prompt is present in Terminal but not executed."
+                ),
+                verification_criteria=(
+                    "Terminal shows the handoff prompt with no Return key press."
+                ),
             )
         )
     else:
@@ -590,7 +708,9 @@ def _asset(asset: str) -> DemoAsset:
         return _DEMO_ASSETS[asset]
     except KeyError as exc:
         known = ", ".join(sorted(_DEMO_ASSETS))
-        raise ValueError(f"Unknown demo asset {asset!r}. Expected one of: {known}.") from exc
+        raise ValueError(
+            f"Unknown demo asset {asset!r}. Expected one of: {known}."
+        ) from exc
 
 
 def _cap_steps(steps: list[WorkflowStep], max_steps: int) -> list[WorkflowStep]:

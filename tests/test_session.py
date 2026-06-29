@@ -315,6 +315,50 @@ def test_verification_failure_pauses_workflow_after_execution(tmp_path):
     assert "Verification failed" in result.narration.speakable_text
 
 
+def test_none_summary_step_reports_payload_without_external_verifier(tmp_path):
+    executor = FakeExecutor()
+    verifier = FakeVerifier(passed())
+    step = make_step(
+        "summarize-pdf",
+        ActionType.NONE,
+        title="Summarize Relevant Sections",
+        reason="Summarize the local PDF without changing it.",
+        expected_app="Preview",
+        expected_window="Gemma 4 Hackathon Instruction Document.pdf",
+        expected_focus=None,
+        payload={
+            "summary": "Local hackathon brief with judging tracks.",
+            "relevant_sections": ["judging tracks", "demo requirements"],
+            "next_action": "Review the submission checklist.",
+        },
+    )
+    plan = make_plan(
+        steps=[step],
+        category=WorkflowCategory.PDF,
+        text="Open the hackathon PDF and summarize it.",
+    )
+    session = make_orchestrator(
+        tmp_path,
+        plan=plan,
+        observer=FakeObserver(
+            make_observation(
+                "Preview", "Gemma 4 Hackathon Instruction Document.pdf", ""
+            )
+        ),
+        executor=executor,
+        verifier=verifier,
+    )
+
+    session.preview("Open the hackathon PDF and summarize it.")
+    session.approve(actor="user")
+    result = session.execute_next_step()
+
+    assert result.state == SessionState.COMPLETED.value
+    assert result.last_verification.status == "passed"
+    assert "judging tracks" in result.narration.speakable_text
+    assert verifier.calls == []
+
+
 def test_reviewer_required_flow_gates_execution_until_reviewer_and_user_approve(
     tmp_path,
 ):

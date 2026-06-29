@@ -229,7 +229,7 @@ class CueSessionOrchestrator:
 
         self._state = SessionState.EXECUTING_STEP
         self._executor(step.action)
-        verification = self._verify(step)
+        verification = _summary_verification_for_step(step) or self._verify(step)
         self._last_verification = verification
         self._narration = self._narrator.verification(verification)
         if verification.status != "passed":
@@ -419,6 +419,38 @@ def _review_block_narration(review: PlanReview) -> NarrationResult:
 
 def _plain_narration(text: str) -> NarrationResult:
     return NarrationResult(summary=text, speakable_text=text)
+
+
+def _summary_verification_for_step(step: WorkflowStep) -> VerificationResult | None:
+    if step.action.action_type != ActionType.NONE:
+        return None
+    payload = step.action.payload
+    summary = payload.get("summary_text") or payload.get("summary")
+    if not summary:
+        return None
+
+    sections = _join_payload_values(payload.get("relevant_sections"))
+    next_action = payload.get("next_action")
+    reason_parts = [f"Summary: {summary}"]
+    if sections:
+        reason_parts.append(f"Relevant sections: {sections}")
+    if next_action:
+        reason_parts.append(f"Next: {next_action}")
+    return VerificationResult(
+        status="passed",
+        reason=". ".join(reason_parts),
+        expected=step.expected_outcome,
+        actual=str(summary),
+        next_recommendation=str(next_action) if next_action else None,
+    )
+
+
+def _join_payload_values(value: Any) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    if value is None:
+        return ""
+    return str(value)
 
 
 def _inform_only_safety(reason: str) -> SafetyDecision:

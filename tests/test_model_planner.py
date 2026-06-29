@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from cue.actions import WorkflowCategory
+from cue.actions import ActionType, WorkflowCategory
 from cue.agent_models import IntentResult, NormalizedInput, WorkflowPlan
 from cue.config import Settings
 from cue.context import DesktopObservation
@@ -111,3 +111,47 @@ def test_model_backed_planner_builds_prompt_context_and_exposes_last_result():
     assert "Active: Finder | Downloads" in call["observation_context"]
     assert "Allowed apps:" in call["policy_summary"]
     assert planner.last_result is workflow_planner.last_result
+
+
+def test_model_backed_planner_uses_local_pdf_recipe_without_model_call():
+    workflow_planner = FakeWorkflowPlanner()
+    planner = ModelBackedPlanner(
+        settings=make_settings(),
+        workflow_planner=workflow_planner,
+    )
+
+    plan = planner("Open the hackathon PDF and summarize it.", make_observation())
+
+    assert workflow_planner.calls == []
+    assert plan.workflow_category == WorkflowCategory.PDF
+    assert plan.steps[0].action.action_type == ActionType.OPEN_FILE
+    assert (
+        plan.steps[0]
+        .action.payload["path"]
+        .endswith("Gemma 4 Hackathon Instruction Document.pdf")
+    )
+    assert "judging tracks" in plan.steps[2].expected_outcome
+
+
+def test_model_backed_planner_uses_terminal_handoff_recipe_that_types_prompt():
+    workflow_planner = FakeWorkflowPlanner()
+    planner = ModelBackedPlanner(
+        settings=make_settings(),
+        workflow_planner=workflow_planner,
+    )
+
+    plan = planner(
+        "Open Terminal for this project and write a Claude Code prompt to inspect the repo.",
+        make_observation(),
+    )
+
+    assert workflow_planner.calls == []
+    assert plan.workflow_category == WorkflowCategory.CODING
+    assert plan.approval_tier == ApprovalTier.CONFIRM_SENSITIVE
+    type_steps = [
+        step for step in plan.steps if step.action.action_type == ActionType.TYPE_TEXT
+    ]
+    assert len(type_steps) == 1
+    assert "inspect this project read-only" in type_steps[0].action.payload["text"]
+    assert "\n" not in type_steps[0].action.payload["text"]
+    assert type_steps[0].action.payload["press_return"] is False

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from cue import workflows
 from cue.actions import ActionType, WorkflowCategory
 from cue.config import Settings
 from cue.policy import ApprovalTier
@@ -53,7 +54,9 @@ def test_document_recipe_opens_textedit_types_title_and_places_cursor_below():
     assert plan.steps[0].action.payload == {"app_name": "TextEdit"}
     assert plan.steps[3].action.payload["text"] == "Cue\n\n"
     assert "cursor below" in plan.steps[3].expected_outcome.casefold()
-    assert len(plan.steps) <= plan.intent.normalized_input.metadata["max_workflow_steps"]
+    assert (
+        len(plan.steps) <= plan.intent.normalized_input.metadata["max_workflow_steps"]
+    )
 
 
 def test_document_recipe_blocks_formatting_when_focus_is_not_verified():
@@ -109,6 +112,34 @@ def test_browser_pdf_recipe_supports_local_assets_and_requires_confirmation_to_f
     }
 
 
+def test_browser_pdf_recipe_summarizes_extracted_pdf_text(monkeypatch):
+    monkeypatch.setattr(
+        workflows,
+        "_extract_pdf_text",
+        lambda path: "\n".join(
+            [
+                "Demo Video Requirements",
+                "Maximum length: 60 seconds",
+                "Show Cerebras speed",
+                "Judging Criteria",
+                "Agent Collaboration",
+                "Enterprise Impact",
+            ]
+        ),
+        raising=False,
+    )
+
+    plan = workflows.create_browser_pdf_workflow(
+        asset="hackathon_pdf",
+        settings=make_settings(),
+    )
+    summary = plan.steps[2].action.payload["summary_text"]
+
+    assert "Maximum length: 60 seconds" in summary
+    assert "Show Cerebras speed" in summary
+    assert "Agent Collaboration" in summary
+
+
 def test_terminal_recipe_is_read_only_by_default_and_blocks_command_execution():
     settings = make_settings(allow_terminal_write=False)
     plan = create_terminal_readonly_workflow(
@@ -136,6 +167,26 @@ def test_terminal_recipe_is_read_only_by_default_and_blocks_command_execution():
     assert blocked.approval_tier == ApprovalTier.BLOCKED
     assert blocked.steps == []
     assert any("terminal write blocked" in reason for reason in blocked.risk_reasons)
+
+
+def test_terminal_recipe_can_type_approved_handoff_prompt_without_return():
+    plan = create_terminal_readonly_workflow(
+        project_path=Path("/tmp/cue-demo-project"),
+        settings=make_settings(allow_terminal_write=False),
+        type_prompt=True,
+    )
+
+    assert plan.approval_tier == ApprovalTier.CONFIRM_SENSITIVE
+    assert action_types(plan) == [
+        ActionType.OPEN_APP,
+        ActionType.VERIFY,
+        ActionType.TYPE_TEXT,
+    ]
+    type_step = plan.steps[2]
+    assert "inspect this project read-only" in type_step.action.payload["text"]
+    assert "\n" not in type_step.action.payload["text"]
+    assert type_step.action.payload["press_return"] is False
+    assert "without pressing Return" in type_step.action.reason
 
 
 def test_workflow_recipes_stay_under_configured_step_limit():
