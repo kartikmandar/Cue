@@ -53,8 +53,9 @@ Read-only CLI/backend previews also showed:
 2. Run `pixi run test`.
 3. Run `pixi run test-mac`.
 4. Run `pixi run package`.
-5. Terminal 1: run `pixi run backend`.
-6. Terminal 2: run `pixi run app` to launch the packaged native Cue app.
+5. Run `pixi run desktop` to start the backend and launch the packaged native
+   Cue app. For manual two-terminal staging, run `pixi run backend` first and
+   then `pixi run app`.
 7. Confirm health from another terminal:
 
 ```bash

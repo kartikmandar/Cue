@@ -57,9 +57,13 @@ For the packaged Release path used in the final runbook:
 
 ```bash
 pixi run package
-pixi run backend
-pixi run app
+pixi run desktop
 ```
+
+`pixi run desktop` starts the backend if `/health` is not already healthy,
+waits for it, opens the packaged Cue app, and keeps the backend attached to the
+terminal so `Ctrl-C` stops it. To run the two pieces manually, use
+`pixi run backend` in one terminal and `pixi run app` in another.
 
 After launch, verify `/health` from a separate terminal:
 
@@ -117,7 +121,8 @@ Before recording:
    observe apps/windows, or after its diagnostics are intentionally shown as the
    validation blocker.
 5. Run `pixi run test`, `pixi run test-mac`, and `pixi run package`.
-6. Start `pixi run backend`, then `pixi run app`.
+6. Start `pixi run desktop`, or start `pixi run backend` and then
+   `pixi run app` manually from separate terminals.
 
 Use these prompts for the Task 16 story:
 
