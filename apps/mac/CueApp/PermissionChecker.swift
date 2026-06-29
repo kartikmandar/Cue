@@ -1,7 +1,9 @@
 import AppKit
 import ApplicationServices
+import AVFoundation
 import CoreGraphics
 import Foundation
+import Speech
 
 struct PermissionChecker {
     private let environment: [String: String]
@@ -9,6 +11,8 @@ struct PermissionChecker {
     private let applicationURLForBundleIdentifier: (String) -> URL?
     private let isAccessibilityTrusted: () -> Bool
     private let canRecordScreen: () -> Bool
+    private let microphonePermission: () -> LocalStatus
+    private let speechRecognitionPermission: () -> LocalStatus
 
     init(
         environment: [String: String] = ProcessInfo.processInfo.environment,
@@ -17,13 +21,35 @@ struct PermissionChecker {
             NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0)
         },
         isAccessibilityTrusted: @escaping () -> Bool = { AXIsProcessTrusted() },
-        canRecordScreen: @escaping () -> Bool = { CGPreflightScreenCaptureAccess() }
+        canRecordScreen: @escaping () -> Bool = { CGPreflightScreenCaptureAccess() },
+        microphonePermission: @escaping () -> LocalStatus = {
+            switch AVCaptureDevice.authorizationStatus(for: .audio) {
+            case .authorized:
+                .ready
+            case .notDetermined, .denied, .restricted:
+                .needsPermission
+            @unknown default:
+                .needsPermission
+            }
+        },
+        speechRecognitionPermission: @escaping () -> LocalStatus = {
+            switch SFSpeechRecognizer.authorizationStatus() {
+            case .authorized:
+                .ready
+            case .notDetermined, .denied, .restricted:
+                .needsPermission
+            @unknown default:
+                .needsPermission
+            }
+        }
     ) {
         self.environment = environment
         self.fileExists = fileExists
         self.applicationURLForBundleIdentifier = applicationURLForBundleIdentifier
         self.isAccessibilityTrusted = isAccessibilityTrusted
         self.canRecordScreen = canRecordScreen
+        self.microphonePermission = microphonePermission
+        self.speechRecognitionPermission = speechRecognitionPermission
     }
 
     func snapshot() -> CueOnboardingStatus {
@@ -31,6 +57,8 @@ struct PermissionChecker {
             cuaStatus: cuaStatus(),
             accessibilityPermission: isAccessibilityTrusted() ? .ready : .needsPermission,
             screenRecordingPermission: canRecordScreen() ? .ready : .needsPermission,
+            microphonePermission: microphonePermission(),
+            speechRecognitionPermission: speechRecognitionPermission(),
             cerebrasAPIKeyStatus: environment["CEREBRAS_API_KEY"].isNilOrEmpty ? .missing : .ready,
             strictPrivacyMode: environment["CUE_PRIVACY_MODE", default: "strict"]
                 .caseInsensitiveCompare("strict") == .orderedSame,

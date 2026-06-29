@@ -11,6 +11,7 @@
 		111111111111111111111102 /* BackendClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111002 /* BackendClientTests.swift */; };
 		111111111111111111111901 /* PermissionCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111306 /* PermissionCheckerTests.swift */; };
 		111111111111111111111902 /* PackagingScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111307 /* PackagingScriptTests.swift */; };
+		111111111111111111111903 /* VoiceInputControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111308 /* VoiceInputControllerTests.swift */; };
 		111111111111111111111201 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111301 /* AppState.swift */; };
 		111111111111111111111202 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111302 /* Models.swift */; };
 		111111111111111111111203 /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111303 /* BackendClient.swift */; };
@@ -31,6 +32,7 @@
 		11111111111111111111150D /* SpeechController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111160D /* SpeechController.swift */; };
 		11111111111111111111150E /* HotKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111160E /* HotKeyController.swift */; };
 		11111111111111111111150F /* PermissionChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111160F /* PermissionChecker.swift */; };
+		111111111111111111111510 /* VoiceInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111610 /* VoiceInputController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +57,7 @@
 		111111111111111111111305 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		111111111111111111111306 /* PermissionCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCheckerTests.swift; sourceTree = "<group>"; };
 		111111111111111111111307 /* PackagingScriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingScriptTests.swift; sourceTree = "<group>"; };
+		111111111111111111111308 /* VoiceInputControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputControllerTests.swift; sourceTree = "<group>"; };
 		111111111111111111111601 /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		111111111111111111111602 /* InputModePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputModePicker.swift; sourceTree = "<group>"; };
 		111111111111111111111603 /* WorkflowPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowPlanView.swift; sourceTree = "<group>"; };
@@ -70,6 +73,7 @@
 		11111111111111111111160D /* SpeechController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechController.swift; sourceTree = "<group>"; };
 		11111111111111111111160E /* HotKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyController.swift; sourceTree = "<group>"; };
 		11111111111111111111160F /* PermissionChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionChecker.swift; sourceTree = "<group>"; };
+		111111111111111111111610 /* VoiceInputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +125,7 @@
 				11111111111111111111160B /* TimingView.swift */,
 				11111111111111111111160C /* SafetyBlockView.swift */,
 				11111111111111111111160D /* SpeechController.swift */,
+				111111111111111111111610 /* VoiceInputController.swift */,
 				11111111111111111111160E /* HotKeyController.swift */,
 				11111111111111111111160F /* PermissionChecker.swift */,
 			);
@@ -132,6 +137,7 @@
 				111111111111111111111002 /* BackendClientTests.swift */,
 				111111111111111111111306 /* PermissionCheckerTests.swift */,
 				111111111111111111111307 /* PackagingScriptTests.swift */,
+				111111111111111111111308 /* VoiceInputControllerTests.swift */,
 			);
 			path = ../CueAppTests;
 			sourceTree = "<group>";
@@ -262,6 +268,7 @@
 				11111111111111111111150B /* TimingView.swift in Sources */,
 				11111111111111111111150C /* SafetyBlockView.swift in Sources */,
 				11111111111111111111150D /* SpeechController.swift in Sources */,
+				111111111111111111111510 /* VoiceInputController.swift in Sources */,
 				11111111111111111111150E /* HotKeyController.swift in Sources */,
 				11111111111111111111150F /* PermissionChecker.swift in Sources */,
 			);
@@ -274,6 +281,7 @@
 				111111111111111111111102 /* BackendClientTests.swift in Sources */,
 				111111111111111111111901 /* PermissionCheckerTests.swift in Sources */,
 				111111111111111111111902 /* PackagingScriptTests.swift in Sources */,
+				111111111111111111111903 /* VoiceInputControllerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +424,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = CueApp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cue uses the microphone for push-to-talk voice commands.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Cue uses speech recognition to turn your spoken requests into text.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -441,6 +451,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = CueApp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cue uses the microphone for push-to-talk voice commands.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Cue uses speech recognition to turn your spoken requests into text.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

@@ -14,7 +14,9 @@ final class PermissionCheckerTests: XCTestCase {
             fileExists: { path in path == "/Applications/Cua.app" },
             applicationURLForBundleIdentifier: { _ in nil },
             isAccessibilityTrusted: { true },
-            canRecordScreen: { false }
+            canRecordScreen: { false },
+            microphonePermission: { .ready },
+            speechRecognitionPermission: { .needsPermission }
         )
 
         let status = checker.snapshot()
@@ -22,6 +24,8 @@ final class PermissionCheckerTests: XCTestCase {
         XCTAssertEqual(status.cuaStatus, .ready)
         XCTAssertEqual(status.accessibilityPermission, .ready)
         XCTAssertEqual(status.screenRecordingPermission, .needsPermission)
+        XCTAssertEqual(status.microphonePermission, .ready)
+        XCTAssertEqual(status.speechRecognitionPermission, .needsPermission)
         XCTAssertEqual(status.cerebrasAPIKeyStatus, .ready)
         XCTAssertTrue(status.strictPrivacyMode)
         XCTAssertTrue(status.auditRedactionEnabled)
@@ -35,7 +39,9 @@ final class PermissionCheckerTests: XCTestCase {
             fileExists: { path in path == "/Applications/CuaDriver.app" },
             applicationURLForBundleIdentifier: { _ in nil },
             isAccessibilityTrusted: { true },
-            canRecordScreen: { true }
+            canRecordScreen: { true },
+            microphonePermission: { .ready },
+            speechRecognitionPermission: { .ready }
         )
 
         let status = checker.snapshot()

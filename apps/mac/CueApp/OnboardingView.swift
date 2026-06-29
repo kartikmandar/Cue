@@ -46,6 +46,8 @@ struct OnboardingView: View {
             StatusRow(title: "Cua Driver", value: appState.onboardingStatus.cuaStatus.label)
             StatusRow(title: "Accessibility", value: appState.onboardingStatus.accessibilityPermission.label)
             StatusRow(title: "Screen Recording", value: appState.onboardingStatus.screenRecordingPermission.label)
+            StatusRow(title: "Microphone", value: appState.onboardingStatus.microphonePermission.label)
+            StatusRow(title: "Speech Recognition", value: appState.onboardingStatus.speechRecognitionPermission.label)
             StatusRow(title: "Cerebras API Key", value: appState.onboardingStatus.cerebrasAPIKeyStatus.label)
             StatusRow(title: "Strict Privacy", value: appState.onboardingStatus.strictPrivacyMode.enabledLabel)
             StatusRow(title: "Audit Redaction", value: appState.onboardingStatus.auditRedactionEnabled.enabledLabel)

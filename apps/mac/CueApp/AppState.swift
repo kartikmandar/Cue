@@ -23,15 +23,18 @@ final class AppState: ObservableObject {
     private let backendClient: BackendClient
     private let permissionChecker: PermissionChecker
     private let speechController: SpeechController
+    let voiceInputController: VoiceInputController
 
     init(
         backendClient: BackendClient = BackendClient(),
         permissionChecker: PermissionChecker = PermissionChecker(),
-        speechController: SpeechController = SpeechController()
+        speechController: SpeechController = SpeechController(),
+        voiceInputController: VoiceInputController = VoiceInputController()
     ) {
         self.backendClient = backendClient
         self.permissionChecker = permissionChecker
         self.speechController = speechController
+        self.voiceInputController = voiceInputController
         refreshLocalStatus()
     }
 
@@ -178,6 +181,8 @@ struct CueOnboardingStatus: Equatable {
     let cuaStatus: LocalStatus
     let accessibilityPermission: LocalStatus
     let screenRecordingPermission: LocalStatus
+    let microphonePermission: LocalStatus
+    let speechRecognitionPermission: LocalStatus
     let cerebrasAPIKeyStatus: LocalStatus
     let strictPrivacyMode: Bool
     let auditRedactionEnabled: Bool
@@ -188,6 +193,8 @@ struct CueOnboardingStatus: Equatable {
         cuaStatus: .missing,
         accessibilityPermission: .needsPermission,
         screenRecordingPermission: .needsPermission,
+        microphonePermission: .needsPermission,
+        speechRecognitionPermission: .needsPermission,
         cerebrasAPIKeyStatus: .missing,
         strictPrivacyMode: true,
         auditRedactionEnabled: true,

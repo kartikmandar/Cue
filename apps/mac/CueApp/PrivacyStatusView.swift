@@ -15,6 +15,8 @@ struct PrivacyStatusView: View {
             PrivacyLine(title: "Cua Driver", value: status.cuaStatus.label, isReady: status.cuaStatus == .ready)
             PrivacyLine(title: "Accessibility", value: status.accessibilityPermission.label, isReady: status.accessibilityPermission == .ready)
             PrivacyLine(title: "Screen Recording", value: status.screenRecordingPermission.label, isReady: status.screenRecordingPermission == .ready)
+            PrivacyLine(title: "Microphone", value: status.microphonePermission.label, isReady: status.microphonePermission == .ready)
+            PrivacyLine(title: "Speech Recognition", value: status.speechRecognitionPermission.label, isReady: status.speechRecognitionPermission == .ready)
         }
         .accessibilityElement(children: .contain)
     }

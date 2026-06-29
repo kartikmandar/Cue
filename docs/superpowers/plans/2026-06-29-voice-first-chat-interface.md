@@ -57,7 +57,7 @@
 - [x] Run `pixi run test-mac` and confirm failure.
 - [x] Add chat response models and client method.
 - [x] Run `pixi run test-mac`.
-- [ ] Commit Swift client/model slice.
+- [x] Commit Swift client/model slice.
 
 ### Task 3: Voice Input Controller
 
@@ -73,12 +73,12 @@
 - Produces: `startListening()`, `stopListening()`, `cancelListening()`, and transcript callbacks.
 - Adds microphone/speech-recognition status to onboarding/local status.
 
-- [ ] Write failing XCTest for permission/status mapping and default voice state.
-- [ ] Run `pixi run test-mac` and confirm failure.
-- [ ] Implement controller with Speech.framework and AVAudioEngine.
-- [ ] Wire controller into `AppState`.
-- [ ] Run `pixi run test-mac`.
-- [ ] Commit voice controller slice.
+- [x] Write failing XCTest for permission/status mapping and default voice state.
+- [x] Run `pixi run test-mac` and confirm failure.
+- [x] Implement controller with Speech.framework and AVAudioEngine.
+- [x] Wire controller into `AppState`.
+- [x] Run `pixi run test-mac`.
+- [x] Commit voice controller slice.
 
 ### Task 4: Voice-First Conversation UI
 
