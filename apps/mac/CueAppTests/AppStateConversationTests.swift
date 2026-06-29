@@ -95,6 +95,44 @@ final class AppStateConversationTests: XCTestCase {
     }
 
     @MainActor
+    func testGlobalListenNowClearsStaleTextAndStartsVoiceCapture() async {
+        let permissionRequester = DeferredAppStateVoicePermissionRequester()
+        let voiceInputController = VoiceInputController(
+            speechRecognizer: nil,
+            permissionRequester: permissionRequester
+        )
+        let appState = AppState(voiceInputController: voiceInputController)
+        appState.inputMode = .text
+        appState.commandText = "stale command"
+
+        appState.startGlobalVoiceCommandCapture()
+
+        XCTAssertEqual(appState.inputMode, .voice)
+        XCTAssertEqual(appState.commandText, "")
+        XCTAssertTrue(voiceInputController.isRecordingSessionActive)
+
+        permissionRequester.resolve(granted: false)
+    }
+
+    @MainActor
+    func testGlobalListenNowDoesNotStartWhileCommandIsBusy() async {
+        let voiceInputController = VoiceInputController(
+            speechRecognizer: nil,
+            permissionRequester: DeferredAppStateVoicePermissionRequester()
+        )
+        let appState = AppState(voiceInputController: voiceInputController)
+        appState.phase = .thinking
+        appState.inputMode = .text
+        appState.commandText = "keep me"
+
+        appState.startGlobalVoiceCommandCapture()
+
+        XCTAssertEqual(appState.inputMode, .text)
+        XCTAssertEqual(appState.commandText, "keep me")
+        XCTAssertFalse(voiceInputController.isRecordingSessionActive)
+    }
+
+    @MainActor
     func testApproveWorkflowRunsFirstApprovedStep() async {
         let client = StubBackendClient(
             approveResponse: CueSessionState(
@@ -174,6 +212,30 @@ private final class CapturingSpeechSynthesizer: AVSpeechSynthesizer {
 
     override func speak(_ utterance: AVSpeechUtterance) {
         spokenUtterances.append(utterance)
+    }
+}
+
+private final class DeferredAppStateVoicePermissionRequester: VoicePermissionRequesting, @unchecked Sendable {
+    private var speechContinuation: CheckedContinuation<Bool, Never>?
+    private var microphoneContinuation: CheckedContinuation<Bool, Never>?
+
+    func requestSpeechRecognitionPermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            speechContinuation = continuation
+        }
+    }
+
+    func requestMicrophonePermission() async -> Bool {
+        await withCheckedContinuation { continuation in
+            microphoneContinuation = continuation
+        }
+    }
+
+    func resolve(granted: Bool) {
+        speechContinuation?.resume(returning: granted)
+        speechContinuation = nil
+        microphoneContinuation?.resume(returning: granted)
+        microphoneContinuation = nil
     }
 }
 

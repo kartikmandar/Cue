@@ -139,6 +139,15 @@ final class AppState: ObservableObject {
         lastAutoSubmittedVoiceCommand = nil
     }
 
+    func startGlobalVoiceCommandCapture() {
+        guard !phase.isBusy else { return }
+        inputMode = .voice
+        prepareForVoiceCommandCapture()
+        voiceInputController.clearTranscript()
+        commandText = ""
+        voiceInputController.startListening()
+    }
+
     func sendVoiceCommandIfTranscriptReady(voiceState: VoiceInputState) async {
         guard inputMode == .voice else { return }
         guard voiceState == .transcribing else { return }
