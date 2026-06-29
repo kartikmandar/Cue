@@ -279,16 +279,18 @@ private struct ActionPreviewCard: View {
                 .font(.callout)
 
             HStack(spacing: 10) {
-                Button {
-                    Task { await appState.approveWorkflow() }
-                } label: {
-                    Label("Approve", systemImage: "checkmark.seal")
+                if !appState.yoloMode {
+                    Button {
+                        Task { await appState.approveWorkflow() }
+                    } label: {
+                        Label("Approve", systemImage: "checkmark.seal")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!appState.pendingApproval || appState.phase.isBusy)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(appState.yoloMode || !appState.pendingApproval || appState.phase.isBusy)
 
                 Button {
-                    Task { await appState.executeNextStep() }
+                    Task { _ = await appState.executeNextStep() }
                 } label: {
                     Label("Do Next Step", systemImage: "arrow.right.circle")
                 }

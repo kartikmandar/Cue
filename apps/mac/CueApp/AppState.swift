@@ -159,21 +159,27 @@ final class AppState: ObservableObject {
             let response = try await backendClient.chat(command: command, conversationID: conversationID)
             conversationID = response.conversationID
             suggestedReplies = response.suggestedReplies
-            conversationMessages.append(
-                CueConversationMessage(
-                    role: .assistant,
-                    text: response.assistantMessage,
-                    mode: response.mode,
-                    session: response.session,
-                    suggestedReplies: response.suggestedReplies
-                )
+            let assistantMessage = CueConversationMessage(
+                role: .assistant,
+                text: response.assistantMessage,
+                mode: response.mode,
+                session: response.session,
+                suggestedReplies: response.suggestedReplies
             )
+            conversationMessages.append(assistantMessage)
             if let session = response.session {
                 apply(session)
+                if shouldAutoExecuteYoloSession(session),
+                   let executedSession = await executeNextStep()
+                {
+                    replaceConversationSession(executedSession, forMessageID: assistantMessage.id)
+                } else {
+                    speak(response.assistantMessage)
+                }
             } else {
                 phase = .idle
+                speak(response.assistantMessage)
             }
-            speak(response.assistantMessage)
             lastErrorMessage = nil
         } catch {
             phase = .error
@@ -226,13 +232,15 @@ final class AppState: ObservableObject {
         }
     }
 
-    func executeNextStep() async {
-        guard let sessionID = currentSession?.sessionID else { return }
+    @discardableResult
+    func executeNextStep() async -> CueSessionState? {
+        guard let sessionID = currentSession?.sessionID else { return nil }
         phase = .acting
         let session = await updateSession {
             try await backendClient.next(sessionID: sessionID)
         }
         speak(session?.lastVerification?.reason ?? session?.narration?.speakableText)
+        return session
     }
 
     func cancelWorkflow() async {
@@ -352,6 +360,29 @@ final class AppState: ObservableObject {
                     || phase == .awaitingStepApproval
                     || phase == .awaitingReviewerApproval
             )
+    }
+
+    private func shouldAutoExecuteYoloSession(_ session: CueSessionState) -> Bool {
+        yoloMode && !session.phase.isTerminal
+    }
+
+    private func replaceConversationSession(
+        _ session: CueSessionState,
+        forMessageID messageID: UUID
+    ) {
+        guard let index = conversationMessages.firstIndex(where: { $0.id == messageID }) else {
+            return
+        }
+        let message = conversationMessages[index]
+        conversationMessages[index] = CueConversationMessage(
+            id: message.id,
+            role: message.role,
+            text: message.text,
+            mode: message.mode,
+            session: session,
+            suggestedReplies: message.suggestedReplies,
+            createdAt: message.createdAt
+        )
     }
 }
 

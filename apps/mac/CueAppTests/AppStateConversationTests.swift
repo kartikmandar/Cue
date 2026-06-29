@@ -166,6 +166,42 @@ final class AppStateConversationTests: XCTestCase {
     }
 
     @MainActor
+    func testYoloModeChatActionRunsNextStepWithoutApproval() async {
+        let session = CueSessionState(
+            sessionID: "session-yolo",
+            phase: .previewReady,
+            confirmationPrompt: "Approve opening Slack?"
+        )
+        let client = StubBackendClient(
+            chatResponse: CueChatResponse(
+                conversationID: "conversation-yolo",
+                assistantMessage: "I can do that. Approve opening Slack?",
+                mode: .actionPreview,
+                session: session,
+                suggestedReplies: []
+            ),
+            nextResponse: CueSessionState(
+                sessionID: "session-yolo",
+                phase: .completed
+            )
+        )
+        let appState = AppState(backendClient: client)
+        appState.yoloMode = true
+        appState.commandText = "Open Slack"
+
+        await appState.sendChatCommand()
+
+        XCTAssertEqual(client.chatRequests, [
+            StubBackendClient.ChatRequest(command: "Open Slack", conversationID: nil)
+        ])
+        XCTAssertEqual(client.approveRequests, [])
+        XCTAssertEqual(client.nextRequests, ["session-yolo"])
+        XCTAssertEqual(appState.currentSession?.phase, .completed)
+        XCTAssertEqual(appState.conversationMessages.last?.session?.phase, .completed)
+        XCTAssertFalse(appState.pendingApproval)
+    }
+
+    @MainActor
     func testYoloModeToggleUpdatesBackendAndClearsPendingApproval() async {
         let client = StubBackendClient(
             modeResponse: CueModeResponse(
