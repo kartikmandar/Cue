@@ -7,6 +7,7 @@ struct TimingView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Timing", systemImage: "timer")
                 .font(.headline)
+            TimingLine(title: "Provider", value: timing?.provider?.displayName ?? "Pending")
             TimingLine(title: "Model", value: timing?.model ?? "Pending")
             TimingLine(title: "Latency", value: timing?.latencyMS.msLabel ?? "Pending")
             TimingLine(title: "Tokens", value: timing?.tokenUsage.map(String.init) ?? "Pending")
@@ -30,6 +31,8 @@ private struct TimingLine: View {
             Spacer()
             Text(value)
                 .font(.caption.monospacedDigit())
+                .lineLimit(1)
+                .truncationMode(.middle)
         }
     }
 }

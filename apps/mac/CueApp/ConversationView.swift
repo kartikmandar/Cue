@@ -38,6 +38,15 @@ struct ConversationView: View {
                 .toggleStyle(.switch)
                 .help("Run requested actions without approval or reviewer gates.")
                 .accessibilityLabel("YOLO mode")
+            Picker("Provider", selection: providerBinding) {
+                ForEach(CueModelProvider.allCases) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 210)
+            .help("Choose which hosted Gemma provider Cue uses for chat and workflow planning.")
+            .accessibilityLabel("Model provider")
             Button {
                 voicePreferencesVisible.toggle()
             } label: {
@@ -68,6 +77,15 @@ struct ConversationView: View {
             get: { appState.yoloMode },
             set: { enabled in
                 Task { await appState.setYoloMode(enabled) }
+            }
+        )
+    }
+
+    private var providerBinding: Binding<CueModelProvider> {
+        Binding(
+            get: { appState.modelProvider },
+            set: { provider in
+                Task { await appState.setModelProvider(provider) }
             }
         )
     }

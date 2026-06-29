@@ -17,6 +17,10 @@ protocol BackendClientProtocol: Sendable {
     func session(id sessionID: String) async throws -> CueSessionState
     func auditEvents(sessionID: String?) async throws -> [CueAuditEvent]
     func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse
+    func setMode(
+        yoloMode: Bool?,
+        modelProvider: CueModelProvider?
+    ) async throws -> CueModeResponse
 }
 
 extension BackendClientProtocol {
@@ -41,6 +45,10 @@ extension BackendClientProtocol {
 
     func cancel(sessionID: String) async throws -> CueSessionState {
         try await cancel(sessionID: sessionID, reason: "Workflow cancelled.")
+    }
+
+    func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse {
+        try await setMode(yoloMode: enabled, modelProvider: nil)
     }
 }
 
@@ -146,10 +154,17 @@ final class BackendClient: @unchecked Sendable {
     }
 
     func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse {
+        try await setMode(yoloMode: enabled, modelProvider: nil)
+    }
+
+    func setMode(
+        yoloMode: Bool? = nil,
+        modelProvider: CueModelProvider? = nil
+    ) async throws -> CueModeResponse {
         try await send(
             path: "/mode",
             method: "POST",
-            body: ModeRequest(yoloMode: enabled)
+            body: ModeRequest(yoloMode: yoloMode, modelProvider: modelProvider)
         )
     }
 
@@ -309,10 +324,12 @@ private struct CancelRequest: Encodable {
 }
 
 private struct ModeRequest: Encodable {
-    let yoloMode: Bool
+    let yoloMode: Bool?
+    let modelProvider: CueModelProvider?
 
     enum CodingKeys: String, CodingKey {
         case yoloMode = "yolo_mode"
+        case modelProvider = "model_provider"
     }
 }
 

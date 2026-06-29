@@ -168,7 +168,11 @@ final class AppStateConversationTests: XCTestCase {
     @MainActor
     func testYoloModeToggleUpdatesBackendAndClearsPendingApproval() async {
         let client = StubBackendClient(
-            modeResponse: CueModeResponse(yoloMode: true)
+            modeResponse: CueModeResponse(
+                yoloMode: true,
+                modelProvider: .cerebras,
+                model: "gemma-4-31b"
+            )
         )
         let appState = AppState(backendClient: client)
         appState.apply(
@@ -183,6 +187,61 @@ final class AppStateConversationTests: XCTestCase {
         XCTAssertEqual(client.yoloModeRequests, [true])
         XCTAssertTrue(appState.yoloMode)
         XCTAssertFalse(appState.pendingApproval)
+    }
+
+    @MainActor
+    func testRefreshBackendHealthSyncsProviderState() async {
+        let client = StubBackendClient(
+            healthResponse: CueHealthResponse(
+                status: "ok",
+                app: "cue",
+                yoloMode: false,
+                modelProvider: .openrouter,
+                model: "google/gemma-4-31b-it:free"
+            )
+        )
+        let appState = AppState(backendClient: client)
+
+        await appState.refreshBackendHealth()
+
+        XCTAssertEqual(appState.backendHealth, .healthy)
+        XCTAssertEqual(appState.modelProvider, .openrouter)
+        XCTAssertEqual(appState.activeModel, "google/gemma-4-31b-it:free")
+    }
+
+    @MainActor
+    func testProviderToggleUpdatesBackendMode() async {
+        let client = StubBackendClient(
+            modeResponse: CueModeResponse(
+                yoloMode: false,
+                modelProvider: .openrouter,
+                model: "google/gemma-4-31b-it:free"
+            )
+        )
+        let appState = AppState(backendClient: client)
+
+        await appState.setModelProvider(.openrouter)
+
+        XCTAssertEqual(client.modeRequests, [
+            StubBackendClient.ModeRequest(yoloMode: nil, modelProvider: .openrouter)
+        ])
+        XCTAssertEqual(appState.modelProvider, .openrouter)
+        XCTAssertEqual(appState.activeModel, "google/gemma-4-31b-it:free")
+    }
+
+    @MainActor
+    func testProviderToggleRevertsWhenBackendModeUpdateFails() async {
+        let client = StubBackendClient(modeError: StubBackendClient.StubError.modeFailed)
+        let appState = AppState(backendClient: client)
+        appState.modelProvider = .cerebras
+        appState.activeModel = "gemma-4-31b"
+
+        await appState.setModelProvider(.openrouter)
+
+        XCTAssertEqual(appState.modelProvider, .cerebras)
+        XCTAssertEqual(appState.activeModel, "gemma-4-31b")
+        XCTAssertEqual(appState.phase, .error)
+        XCTAssertNotNil(appState.lastErrorMessage)
     }
 
     @MainActor
@@ -287,16 +346,35 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
         let conversationID: String?
     }
 
+    struct ModeRequest: Equatable {
+        let yoloMode: Bool?
+        let modelProvider: CueModelProvider?
+    }
+
+    enum StubError: Error {
+        case modeFailed
+    }
+
+    private let healthResponse: CueHealthResponse
     private let chatResponse: CueChatResponse
     private let approveResponse: CueSessionState
     private let nextResponse: CueSessionState
     private let modeResponse: CueModeResponse
+    private let modeError: Error?
     private(set) var chatRequests: [ChatRequest] = []
     private(set) var approveRequests: [String] = []
     private(set) var nextRequests: [String] = []
     private(set) var yoloModeRequests: [Bool] = []
+    private(set) var modeRequests: [ModeRequest] = []
 
     init(
+        healthResponse: CueHealthResponse = CueHealthResponse(
+            status: "ok",
+            app: "cue",
+            yoloMode: false,
+            modelProvider: .cerebras,
+            model: "gemma-4-31b"
+        ),
         chatResponse: CueChatResponse = CueChatResponse(
             conversationID: "conversation-default",
             assistantMessage: "Ready.",
@@ -313,17 +391,22 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
             phase: .completed
         ),
         modeResponse: CueModeResponse = CueModeResponse(
-            yoloMode: false
-        )
+            yoloMode: false,
+            modelProvider: .cerebras,
+            model: "gemma-4-31b"
+        ),
+        modeError: Error? = nil
     ) {
+        self.healthResponse = healthResponse
         self.chatResponse = chatResponse
         self.approveResponse = approveResponse
         self.nextResponse = nextResponse
         self.modeResponse = modeResponse
+        self.modeError = modeError
     }
 
     func health() async throws -> CueHealthResponse {
-        CueHealthResponse(status: "ok", app: "cue")
+        healthResponse
     }
 
     func preview(command: String) async throws -> CueWorkflowPreviewResponse {
@@ -372,6 +455,17 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
 
     func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse {
         yoloModeRequests.append(enabled)
+        return try await setMode(yoloMode: enabled, modelProvider: nil)
+    }
+
+    func setMode(
+        yoloMode: Bool?,
+        modelProvider: CueModelProvider?
+    ) async throws -> CueModeResponse {
+        if let modeError {
+            throw modeError
+        }
+        modeRequests.append(ModeRequest(yoloMode: yoloMode, modelProvider: modelProvider))
         return modeResponse
     }
 }

@@ -89,6 +89,22 @@ struct CueChatResponse: Codable, Equatable {
     }
 }
 
+enum CueModelProvider: String, Codable, CaseIterable, Equatable, Identifiable {
+    case cerebras
+    case openrouter
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .cerebras:
+            "Cerebras"
+        case .openrouter:
+            "OpenRouter"
+        }
+    }
+}
+
 struct CueVerificationResult: Codable, Equatable {
     let status: String
     let reason: String
@@ -285,25 +301,41 @@ struct CueHealthResponse: Codable, Equatable {
     let status: String
     let app: String
     let yoloMode: Bool?
+    let modelProvider: CueModelProvider?
+    let model: String?
 
-    init(status: String, app: String, yoloMode: Bool? = nil) {
+    init(
+        status: String,
+        app: String,
+        yoloMode: Bool? = nil,
+        modelProvider: CueModelProvider? = nil,
+        model: String? = nil
+    ) {
         self.status = status
         self.app = app
         self.yoloMode = yoloMode
+        self.modelProvider = modelProvider
+        self.model = model
     }
 
     enum CodingKeys: String, CodingKey {
         case status
         case app
         case yoloMode = "yolo_mode"
+        case modelProvider = "model_provider"
+        case model
     }
 }
 
 struct CueModeResponse: Codable, Equatable {
     let yoloMode: Bool
+    let modelProvider: CueModelProvider
+    let model: String
 
     enum CodingKeys: String, CodingKey {
         case yoloMode = "yolo_mode"
+        case modelProvider = "model_provider"
+        case model
     }
 }
 
@@ -406,20 +438,56 @@ struct CueRiskSummary: Codable, Equatable {
 }
 
 struct CueTiming: Codable, Equatable {
+    let provider: CueModelProvider?
     let model: String?
     let latencyMS: Int?
     let tokenUsage: Int?
     let actionLoopMS: Int?
     let verificationMS: Int?
     let backendMS: Int?
+    let providerTiming: [String: CueJSONValue]
 
     enum CodingKeys: String, CodingKey {
+        case provider
         case model
         case latencyMS = "latency_ms"
         case tokenUsage = "token_usage"
         case actionLoopMS = "action_loop_ms"
         case verificationMS = "verification_ms"
         case backendMS = "backend_ms"
+        case providerTiming = "provider_timing"
+    }
+
+    init(
+        provider: CueModelProvider? = nil,
+        model: String? = nil,
+        latencyMS: Int? = nil,
+        tokenUsage: Int? = nil,
+        actionLoopMS: Int? = nil,
+        verificationMS: Int? = nil,
+        backendMS: Int? = nil,
+        providerTiming: [String: CueJSONValue] = [:]
+    ) {
+        self.provider = provider
+        self.model = model
+        self.latencyMS = latencyMS
+        self.tokenUsage = tokenUsage
+        self.actionLoopMS = actionLoopMS
+        self.verificationMS = verificationMS
+        self.backendMS = backendMS
+        self.providerTiming = providerTiming
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try container.decodeIfPresent(CueModelProvider.self, forKey: .provider)
+        model = try container.decodeIfPresent(String.self, forKey: .model)
+        latencyMS = try container.decodeIfPresent(Int.self, forKey: .latencyMS)
+        tokenUsage = try container.decodeIfPresent(Int.self, forKey: .tokenUsage)
+        actionLoopMS = try container.decodeIfPresent(Int.self, forKey: .actionLoopMS)
+        verificationMS = try container.decodeIfPresent(Int.self, forKey: .verificationMS)
+        backendMS = try container.decodeIfPresent(Int.self, forKey: .backendMS)
+        providerTiming = try container.decodeIfPresent([String: CueJSONValue].self, forKey: .providerTiming) ?? [:]
     }
 }
 

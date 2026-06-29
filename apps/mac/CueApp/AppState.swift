@@ -21,6 +21,8 @@ final class AppState: ObservableObject {
     @Published var speechVoiceOptions: [SpeechVoiceOption]
     @Published var privacyMode = "strict"
     @Published var yoloMode = false
+    @Published var modelProvider: CueModelProvider = .cerebras
+    @Published var activeModel = "gemma-4-31b"
     @Published var pendingApproval = false
     @Published var focusStatus: CueFocusStatus?
     @Published var auditSummary: [String] = []
@@ -56,6 +58,9 @@ final class AppState: ObservableObject {
         let status = permissionChecker.snapshot()
         privacyMode = status.strictPrivacyMode ? "strict" : environment["CUE_PRIVACY_MODE", default: "standard"]
         yoloMode = environment["CUE_YOLO_MODE"].map { $0 == "true" } ?? yoloMode
+        if let provider = environment["CUE_MODEL_PROVIDER"].flatMap(CueModelProvider.init(rawValue:)) {
+            modelProvider = provider
+        }
         speechEnabled = environment["CUE_SPEAK"].map { $0 != "false" } ?? true
         onboardingStatus = status
         refreshPendingApproval()
@@ -68,6 +73,12 @@ final class AppState: ObservableObject {
             if let backendYoloMode = response.yoloMode {
                 yoloMode = backendYoloMode
                 refreshPendingApproval()
+            }
+            if let backendProvider = response.modelProvider {
+                modelProvider = backendProvider
+            }
+            if let backendModel = response.model {
+                activeModel = backendModel
             }
             lastErrorMessage = nil
         } catch {
@@ -82,12 +93,31 @@ final class AppState: ObservableObject {
         refreshPendingApproval()
         do {
             let response = try await backendClient.setYoloMode(enabled)
-            yoloMode = response.yoloMode
-            refreshPendingApproval()
+            apply(response)
             lastErrorMessage = nil
         } catch {
             yoloMode = previous
             refreshPendingApproval()
+            phase = .error
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    func setModelProvider(_ provider: CueModelProvider) async {
+        let previousProvider = modelProvider
+        let previousModel = activeModel
+        modelProvider = provider
+        activeModel = provider.defaultModel
+        do {
+            let response = try await backendClient.setMode(
+                yoloMode: nil,
+                modelProvider: provider
+            )
+            apply(response)
+            lastErrorMessage = nil
+        } catch {
+            modelProvider = previousProvider
+            activeModel = previousModel
             phase = .error
             lastErrorMessage = error.localizedDescription
         }
@@ -282,6 +312,13 @@ final class AppState: ObservableObject {
         auditSummary = session.auditSummary
     }
 
+    func apply(_ mode: CueModeResponse) {
+        yoloMode = mode.yoloMode
+        modelProvider = mode.modelProvider
+        activeModel = mode.model
+        refreshPendingApproval()
+    }
+
     private func updateSession(_ operation: () async throws -> CueSessionState) async -> CueSessionState? {
         do {
             let session = try await operation()
@@ -325,10 +362,21 @@ enum CueInputMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum BackendHealth: String {
+enum BackendHealth: String, Equatable {
     case unknown
     case healthy
     case unavailable
+}
+
+extension CueModelProvider {
+    var defaultModel: String {
+        switch self {
+        case .cerebras:
+            "gemma-4-31b"
+        case .openrouter:
+            "google/gemma-4-31b-it:free"
+        }
+    }
 }
 
 enum LocalStatus: String {

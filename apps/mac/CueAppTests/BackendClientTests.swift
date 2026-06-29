@@ -76,12 +76,16 @@ final class BackendClientTests: XCTestCase {
           },
           "confirmation_prompt": "Approve this workflow?",
           "timing": {
+            "provider": "cerebras",
             "model": "gemma-4-31b",
             "latency_ms": 220,
             "token_usage": 84,
             "action_loop_ms": 31,
             "verification_ms": 19,
-            "backend_ms": 12
+            "backend_ms": 12,
+            "provider_timing": {
+              "total_time": 0.22
+            }
           },
           "audit_summary": ["TextEdit: type_text"],
           "audit_events": []
@@ -107,11 +111,38 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(response.session.workflowPlan?.steps.first?.action.actionType, "type_text")
         XCTAssertEqual(response.session.focusStatus?.activeApp, "TextEdit")
         XCTAssertEqual(response.session.policyDecision?.redactionApplied, true)
+        XCTAssertEqual(response.session.timing?.provider, .cerebras)
         XCTAssertEqual(response.session.timing?.model, "gemma-4-31b")
         XCTAssertEqual(response.session.timing?.latencyMS, 220)
         XCTAssertEqual(response.session.timing?.tokenUsage, 84)
         XCTAssertEqual(response.session.timing?.actionLoopMS, 31)
         XCTAssertEqual(response.session.timing?.verificationMS, 19)
+        XCTAssertEqual(response.session.timing?.providerTiming["total_time"], .number(0.22))
+    }
+
+    func testHealthDecodesProviderStatus() async throws {
+        RecordingURLProtocol.stub(
+            path: "/health",
+            response: """
+            {
+              "status": "ok",
+              "app": "cue",
+              "yolo_mode": false,
+              "model_provider": "openrouter",
+              "model": "google/gemma-4-31b-it:free"
+            }
+            """
+        )
+        let client = BackendClient(
+            baseURL: URL(string: "http://127.0.0.1:8765")!,
+            session: .recording
+        )
+
+        let response = try await client.health()
+
+        XCTAssertEqual(response.status, "ok")
+        XCTAssertEqual(response.modelProvider, .openrouter)
+        XCTAssertEqual(response.model, "google/gemma-4-31b-it:free")
     }
 
     func testWorkflowControlMethodsUseBackendRoutesAndDecodeResponses() async throws {
@@ -182,7 +213,7 @@ final class BackendClientTests: XCTestCase {
     func testSetYoloModePostsModeRequestAndDecodesResponse() async throws {
         RecordingURLProtocol.stub(
             path: "/mode",
-            response: #"{"yolo_mode": true}"#
+            response: #"{"yolo_mode": true, "model_provider": "cerebras", "model": "gemma-4-31b"}"#
         )
         let client = BackendClient(
             baseURL: URL(string: "http://127.0.0.1:8765")!,
@@ -196,6 +227,34 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(request.url?.path, "/mode")
         XCTAssertEqual(try request.jsonBody()["yolo_mode"] as? Bool, true)
         XCTAssertEqual(response.yoloMode, true)
+        XCTAssertEqual(response.modelProvider, .cerebras)
+        XCTAssertEqual(response.model, "gemma-4-31b")
+    }
+
+    func testSetModePostsProviderRequestAndDecodesResponse() async throws {
+        RecordingURLProtocol.stub(
+            path: "/mode",
+            response: #"{"yolo_mode": false, "model_provider": "openrouter", "model": "google/gemma-4-31b-it:free"}"#
+        )
+        let client = BackendClient(
+            baseURL: URL(string: "http://127.0.0.1:8765")!,
+            session: .recording
+        )
+
+        let response = try await client.setMode(
+            yoloMode: false,
+            modelProvider: .openrouter
+        )
+
+        let request = try XCTUnwrap(RecordingURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/mode")
+        let body = try request.jsonBody()
+        XCTAssertEqual(body["yolo_mode"] as? Bool, false)
+        XCTAssertEqual(body["model_provider"] as? String, "openrouter")
+        XCTAssertEqual(response.yoloMode, false)
+        XCTAssertEqual(response.modelProvider, .openrouter)
+        XCTAssertEqual(response.model, "google/gemma-4-31b-it:free")
     }
 
     func testChatPostsCommandAndDecodesConversationResponse() async throws {
