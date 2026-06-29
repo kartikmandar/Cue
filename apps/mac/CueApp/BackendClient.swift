@@ -1,5 +1,48 @@
 import Foundation
 
+protocol BackendClientProtocol: Sendable {
+    func health() async throws -> CueHealthResponse
+    func preview(command: String) async throws -> CueWorkflowPreviewResponse
+    func chat(command: String, conversationID: String?) async throws -> CueChatResponse
+    func approve(sessionID: String, actor: String) async throws -> CueSessionState
+    func next(sessionID: String) async throws -> CueSessionState
+    func requestReview(sessionID: String, actor: String) async throws -> CueSessionState
+    func confirmReviewer(
+        sessionID: String,
+        approved: Bool,
+        actor: String,
+        reason: String?
+    ) async throws -> CueSessionState
+    func cancel(sessionID: String, reason: String) async throws -> CueSessionState
+    func session(id sessionID: String) async throws -> CueSessionState
+    func auditEvents(sessionID: String?) async throws -> [CueAuditEvent]
+}
+
+extension BackendClientProtocol {
+    func chat(command: String) async throws -> CueChatResponse {
+        try await chat(command: command, conversationID: nil)
+    }
+
+    func approve(sessionID: String) async throws -> CueSessionState {
+        try await approve(sessionID: sessionID, actor: "user")
+    }
+
+    func requestReview(sessionID: String) async throws -> CueSessionState {
+        try await requestReview(sessionID: sessionID, actor: "guardian")
+    }
+
+    func confirmReviewer(
+        sessionID: String,
+        approved: Bool
+    ) async throws -> CueSessionState {
+        try await confirmReviewer(sessionID: sessionID, approved: approved, actor: "guardian", reason: nil)
+    }
+
+    func cancel(sessionID: String) async throws -> CueSessionState {
+        try await cancel(sessionID: sessionID, reason: "Workflow cancelled.")
+    }
+}
+
 final class BackendClient: @unchecked Sendable {
     private let baseURL: URL
     private let session: URLSession
@@ -157,6 +200,8 @@ final class BackendClient: @unchecked Sendable {
         }
     }
 }
+
+extension BackendClient: BackendClientProtocol {}
 
 enum BackendClientError: Error, LocalizedError, Equatable {
     case invalidBaseURL(String)

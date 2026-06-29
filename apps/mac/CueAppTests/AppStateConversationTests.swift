@@ -1,0 +1,124 @@
+import XCTest
+@testable import CueApp
+
+final class AppStateConversationTests: XCTestCase {
+    @MainActor
+    func testAppStateDefaultsToVoiceFirstConversation() {
+        let appState = AppState(backendClient: StubBackendClient())
+
+        XCTAssertEqual(appState.inputMode, .voice)
+        XCTAssertFalse(appState.detailsInspectorVisible)
+        XCTAssertEqual(appState.conversationMessages.first?.role, .assistant)
+    }
+
+    @MainActor
+    func testSendChatCommandAppendsConversationAndAppliesActionSession() async {
+        let session = CueSessionState(
+            sessionID: "session-123",
+            phase: .awaitingWorkflowApproval,
+            policyDecision: CuePolicyDecision(
+                allowed: true,
+                approvalTier: "confirm_each_action",
+                reason: "Allowed for test.",
+                requiresReviewerApproval: false,
+                redactionApplied: false
+            ),
+            confirmationPrompt: "Approve opening TextEdit?"
+        )
+        let client = StubBackendClient(
+            chatResponse: CueChatResponse(
+                conversationID: "conversation-123",
+                assistantMessage: "I can do that. Approve opening TextEdit?",
+                mode: .actionPreview,
+                session: session,
+                suggestedReplies: ["Approve", "Cancel"]
+            )
+        )
+        let appState = AppState(backendClient: client)
+        let initialMessageCount = appState.conversationMessages.count
+
+        appState.commandText = "Open TextEdit"
+        await appState.sendChatCommand()
+
+        XCTAssertEqual(client.chatRequests, [
+            StubBackendClient.ChatRequest(command: "Open TextEdit", conversationID: nil)
+        ])
+        XCTAssertEqual(appState.commandText, "")
+        XCTAssertEqual(appState.conversationID, "conversation-123")
+        XCTAssertEqual(appState.currentSession?.sessionID, "session-123")
+        XCTAssertTrue(appState.pendingApproval)
+        XCTAssertEqual(appState.suggestedReplies, ["Approve", "Cancel"])
+        XCTAssertEqual(appState.conversationMessages.count, initialMessageCount + 2)
+        XCTAssertEqual(appState.conversationMessages.suffix(2).map(\.role), [.user, .assistant])
+        XCTAssertEqual(appState.conversationMessages.last?.mode, .actionPreview)
+        XCTAssertEqual(appState.conversationMessages.last?.session?.sessionID, "session-123")
+    }
+}
+
+private final class StubBackendClient: BackendClientProtocol, @unchecked Sendable {
+    struct ChatRequest: Equatable {
+        let command: String
+        let conversationID: String?
+    }
+
+    private let chatResponse: CueChatResponse
+    private(set) var chatRequests: [ChatRequest] = []
+
+    init(
+        chatResponse: CueChatResponse = CueChatResponse(
+            conversationID: "conversation-default",
+            assistantMessage: "Ready.",
+            mode: .conversation,
+            session: nil,
+            suggestedReplies: []
+        )
+    ) {
+        self.chatResponse = chatResponse
+    }
+
+    func health() async throws -> CueHealthResponse {
+        CueHealthResponse(status: "ok", app: "cue")
+    }
+
+    func preview(command: String) async throws -> CueWorkflowPreviewResponse {
+        CueWorkflowPreviewResponse(session: CueSessionState(sessionID: "preview", phase: .previewReady))
+    }
+
+    func chat(command: String, conversationID: String?) async throws -> CueChatResponse {
+        chatRequests.append(ChatRequest(command: command, conversationID: conversationID))
+        return chatResponse
+    }
+
+    func approve(sessionID: String, actor: String) async throws -> CueSessionState {
+        CueSessionState(sessionID: sessionID, phase: .previewReady)
+    }
+
+    func next(sessionID: String) async throws -> CueSessionState {
+        CueSessionState(sessionID: sessionID, phase: .completed)
+    }
+
+    func requestReview(sessionID: String, actor: String) async throws -> CueSessionState {
+        CueSessionState(sessionID: sessionID, phase: .awaitingReviewerApproval)
+    }
+
+    func confirmReviewer(
+        sessionID: String,
+        approved: Bool,
+        actor: String,
+        reason: String?
+    ) async throws -> CueSessionState {
+        CueSessionState(sessionID: sessionID, phase: approved ? .previewReady : .blocked)
+    }
+
+    func cancel(sessionID: String, reason: String) async throws -> CueSessionState {
+        CueSessionState(sessionID: sessionID, phase: .cancelled)
+    }
+
+    func session(id sessionID: String) async throws -> CueSessionState {
+        CueSessionState(sessionID: sessionID, phase: .previewReady)
+    }
+
+    func auditEvents(sessionID: String?) async throws -> [CueAuditEvent] {
+        []
+    }
+}

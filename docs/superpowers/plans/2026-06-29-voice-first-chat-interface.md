@@ -95,13 +95,13 @@
 - Produces: large mic-first composer with `Send`, `Push to Talk`, `Type instead`, and `Details`.
 - Keeps workflow approval/execution controls as inline action cards.
 
-- [ ] Write failing UI-adjacent model tests where possible for default voice mode, message append behavior, and action-card state.
-- [ ] Run `pixi run test-mac` and confirm failure.
-- [ ] Implement conversation state and chat send flow.
-- [ ] Replace the default command palette body with conversation UI.
-- [ ] Move workflow/focus/privacy/audit/timing into a collapsible inspector.
-- [ ] Run `pixi run test-mac`.
-- [ ] Commit conversation UI slice.
+- [x] Write failing UI-adjacent model tests where possible for default voice mode, message append behavior, and action-card state.
+- [x] Run `pixi run test-mac` and confirm failure.
+- [x] Implement conversation state and chat send flow.
+- [x] Replace the default command palette body with conversation UI.
+- [x] Move workflow/focus/privacy/audit/timing into a collapsible inspector.
+- [x] Run `pixi run test-mac`.
+- [x] Commit conversation UI slice.
 
 ### Task 5: End-To-End Verification And Packaging
 

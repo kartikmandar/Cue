@@ -12,6 +12,7 @@
 		111111111111111111111901 /* PermissionCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111306 /* PermissionCheckerTests.swift */; };
 		111111111111111111111902 /* PackagingScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111307 /* PackagingScriptTests.swift */; };
 		111111111111111111111903 /* VoiceInputControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111308 /* VoiceInputControllerTests.swift */; };
+		111111111111111111111904 /* AppStateConversationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111309 /* AppStateConversationTests.swift */; };
 		111111111111111111111201 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111301 /* AppState.swift */; };
 		111111111111111111111202 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111302 /* Models.swift */; };
 		111111111111111111111203 /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111303 /* BackendClient.swift */; };
@@ -33,6 +34,9 @@
 		11111111111111111111150E /* HotKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111160E /* HotKeyController.swift */; };
 		11111111111111111111150F /* PermissionChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11111111111111111111160F /* PermissionChecker.swift */; };
 		111111111111111111111510 /* VoiceInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111610 /* VoiceInputController.swift */; };
+		111111111111111111111511 /* ConversationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111611 /* ConversationModels.swift */; };
+		111111111111111111111512 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111612 /* ConversationView.swift */; };
+		111111111111111111111513 /* DetailsInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111111111111111111111613 /* DetailsInspectorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +62,7 @@
 		111111111111111111111306 /* PermissionCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCheckerTests.swift; sourceTree = "<group>"; };
 		111111111111111111111307 /* PackagingScriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagingScriptTests.swift; sourceTree = "<group>"; };
 		111111111111111111111308 /* VoiceInputControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputControllerTests.swift; sourceTree = "<group>"; };
+		111111111111111111111309 /* AppStateConversationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateConversationTests.swift; sourceTree = "<group>"; };
 		111111111111111111111601 /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		111111111111111111111602 /* InputModePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputModePicker.swift; sourceTree = "<group>"; };
 		111111111111111111111603 /* WorkflowPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowPlanView.swift; sourceTree = "<group>"; };
@@ -74,6 +79,9 @@
 		11111111111111111111160E /* HotKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKeyController.swift; sourceTree = "<group>"; };
 		11111111111111111111160F /* PermissionChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionChecker.swift; sourceTree = "<group>"; };
 		111111111111111111111610 /* VoiceInputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputController.swift; sourceTree = "<group>"; };
+		111111111111111111111611 /* ConversationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationModels.swift; sourceTree = "<group>"; };
+		111111111111111111111612 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
+		111111111111111111111613 /* DetailsInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailsInspectorView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +121,8 @@
 				111111111111111111111304 /* CueStatusBarController.swift */,
 				111111111111111111111305 /* OnboardingView.swift */,
 				111111111111111111111601 /* CommandPaletteView.swift */,
+				111111111111111111111612 /* ConversationView.swift */,
+				111111111111111111111613 /* DetailsInspectorView.swift */,
 				111111111111111111111602 /* InputModePicker.swift */,
 				111111111111111111111603 /* WorkflowPlanView.swift */,
 				111111111111111111111604 /* WorkflowStepView.swift */,
@@ -126,6 +136,7 @@
 				11111111111111111111160C /* SafetyBlockView.swift */,
 				11111111111111111111160D /* SpeechController.swift */,
 				111111111111111111111610 /* VoiceInputController.swift */,
+				111111111111111111111611 /* ConversationModels.swift */,
 				11111111111111111111160E /* HotKeyController.swift */,
 				11111111111111111111160F /* PermissionChecker.swift */,
 			);
@@ -138,6 +149,7 @@
 				111111111111111111111306 /* PermissionCheckerTests.swift */,
 				111111111111111111111307 /* PackagingScriptTests.swift */,
 				111111111111111111111308 /* VoiceInputControllerTests.swift */,
+				111111111111111111111309 /* AppStateConversationTests.swift */,
 			);
 			path = ../CueAppTests;
 			sourceTree = "<group>";
@@ -256,6 +268,8 @@
 				111111111111111111111204 /* CueStatusBarController.swift in Sources */,
 				111111111111111111111205 /* OnboardingView.swift in Sources */,
 				111111111111111111111501 /* CommandPaletteView.swift in Sources */,
+				111111111111111111111512 /* ConversationView.swift in Sources */,
+				111111111111111111111513 /* DetailsInspectorView.swift in Sources */,
 				111111111111111111111502 /* InputModePicker.swift in Sources */,
 				111111111111111111111503 /* WorkflowPlanView.swift in Sources */,
 				111111111111111111111504 /* WorkflowStepView.swift in Sources */,
@@ -269,6 +283,7 @@
 				11111111111111111111150C /* SafetyBlockView.swift in Sources */,
 				11111111111111111111150D /* SpeechController.swift in Sources */,
 				111111111111111111111510 /* VoiceInputController.swift in Sources */,
+				111111111111111111111511 /* ConversationModels.swift in Sources */,
 				11111111111111111111150E /* HotKeyController.swift in Sources */,
 				11111111111111111111150F /* PermissionChecker.swift in Sources */,
 			);
@@ -282,6 +297,7 @@
 				111111111111111111111901 /* PermissionCheckerTests.swift in Sources */,
 				111111111111111111111902 /* PackagingScriptTests.swift in Sources */,
 				111111111111111111111903 /* VoiceInputControllerTests.swift in Sources */,
+				111111111111111111111904 /* AppStateConversationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

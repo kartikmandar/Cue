@@ -8,7 +8,11 @@ import Foundation
 final class AppState: ObservableObject {
     @Published var phase: CuePhase = .idle
     @Published var commandText = ""
-    @Published var inputMode: CueInputMode = .text
+    @Published var inputMode: CueInputMode = .voice
+    @Published var conversationID: String?
+    @Published var conversationMessages: [CueConversationMessage] = [CueConversationMessage.welcome()]
+    @Published var suggestedReplies: [String] = []
+    @Published var detailsInspectorVisible = false
     @Published var backendHealth: BackendHealth = .unknown
     @Published var currentSession: CueSessionState?
     @Published var lastResponse: CueWorkflowPreviewResponse?
@@ -20,13 +24,13 @@ final class AppState: ObservableObject {
     @Published var onboardingStatus = CueOnboardingStatus.defaults
     @Published var lastErrorMessage: String?
 
-    private let backendClient: BackendClient
+    private let backendClient: any BackendClientProtocol
     private let permissionChecker: PermissionChecker
     private let speechController: SpeechController
     let voiceInputController: VoiceInputController
 
     init(
-        backendClient: BackendClient = BackendClient(),
+        backendClient: any BackendClientProtocol = BackendClient(),
         permissionChecker: PermissionChecker = PermissionChecker(),
         speechController: SpeechController = SpeechController(),
         voiceInputController: VoiceInputController = VoiceInputController()
@@ -73,6 +77,53 @@ final class AppState: ObservableObject {
         } catch {
             phase = .error
             lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    func sendChatCommand(_ rawCommand: String? = nil) async {
+        let command = (rawCommand ?? commandText).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else {
+            lastErrorMessage = "Ask Cue something first."
+            return
+        }
+
+        conversationMessages.append(
+            CueConversationMessage(role: .user, text: command)
+        )
+        commandText = ""
+        phase = .thinking
+
+        do {
+            let response = try await backendClient.chat(command: command, conversationID: conversationID)
+            conversationID = response.conversationID
+            suggestedReplies = response.suggestedReplies
+            conversationMessages.append(
+                CueConversationMessage(
+                    role: .assistant,
+                    text: response.assistantMessage,
+                    mode: response.mode,
+                    session: response.session,
+                    suggestedReplies: response.suggestedReplies
+                )
+            )
+            if let session = response.session {
+                apply(session)
+            } else {
+                phase = .idle
+            }
+            speak(response.assistantMessage)
+            lastErrorMessage = nil
+        } catch {
+            phase = .error
+            suggestedReplies = []
+            lastErrorMessage = error.localizedDescription
+            conversationMessages.append(
+                CueConversationMessage(
+                    role: .assistant,
+                    text: "I could not reach the Cue backend. \(error.localizedDescription)",
+                    mode: .blocked
+                )
+            )
         }
     }
 
