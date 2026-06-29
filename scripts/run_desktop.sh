@@ -21,7 +21,7 @@ try:
 except Exception:
     raise SystemExit(1)
 
-if response.status != 200 or payload != {"status": "ok", "app": "cue"}:
+if response.status != 200 or payload.get("status") != "ok" or payload.get("app") != "cue":
     raise SystemExit(1)
 PY
 }

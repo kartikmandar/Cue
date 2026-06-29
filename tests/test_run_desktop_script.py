@@ -52,7 +52,9 @@ def test_run_desktop_starts_backend_waits_for_health_and_opens_app(tmp_path):
                         self.send_response(404)
                         self.end_headers()
                         return
-                    body = json.dumps({"status": "ok", "app": "cue"}).encode()
+                    body = json.dumps(
+                        {"status": "ok", "app": "cue", "yolo_mode": False}
+                    ).encode()
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Content-Length", str(len(body)))
@@ -78,7 +80,7 @@ def test_run_desktop_starts_backend_waits_for_health_and_opens_app(tmp_path):
     open_log = tmp_path / "open.log"
     open_stub = bin_dir / "open"
     open_stub.write_text(
-        "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"$1\" >> \"$OPEN_LOG\"\n",
+        '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$1" >> "$OPEN_LOG"\n',
         encoding="utf-8",
     )
     open_stub.chmod(0o755)
