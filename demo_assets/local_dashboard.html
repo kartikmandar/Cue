@@ -38,7 +38,8 @@
         padding-left: 22px;
       }
 
-      label {
+      label,
+      .weak-label {
         display: block;
         font-weight: 600;
         margin-bottom: 8px;
@@ -69,7 +70,10 @@
     <main>
       <header>
         <h1>Cue Local Demo Dashboard</h1>
-        <p>Status summary: all demo data is synthetic and safe to inspect.</p>
+        <p>
+          Status summary: all demo data is synthetic, local, and safe to inspect.
+          No network request is required for this page.
+        </p>
       </header>
 
       <section aria-labelledby="tasks-heading">
@@ -83,7 +87,11 @@
 
       <section aria-labelledby="form-heading">
         <h2 id="form-heading">Demo-Safe Form</h2>
-        <label for="demo-status-note">Status note</label>
+        <p>
+          The next control intentionally uses a weak visible label so Cue can
+          explain the field before asking to fill it.
+        </p>
+        <span class="weak-label">Note</span>
         <textarea id="demo-status-note" name="demo-status-note">Ready for review.</textarea>
         <button type="button">Save local note</button>
       </section>

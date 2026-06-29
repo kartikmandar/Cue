@@ -7,7 +7,10 @@ changing anything.
 Demo tasks:
 - Prepare a TextEdit title for Cue.
 - Review the local dashboard status.
+- Explain the weakly labeled local form before filling any field.
 - Prepare a read-only Claude Code prompt for this project.
 
 Privacy boundary: all content in this brief is local, synthetic, and safe for a
 recorded hackathon demo.
+
+Recording deadline: complete the dry run before the final 60-second capture.

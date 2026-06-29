@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cue Weak Label Form Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f5f7fa;
+        color: #1d2733;
+      }
+
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 32px 20px;
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 12px;
+      }
+
+      section {
+        border-top: 1px solid #d3dae4;
+        padding: 20px 0;
+      }
+
+      .field {
+        margin: 14px 0;
+      }
+
+      .weak-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      input,
+      textarea {
+        box-sizing: border-box;
+        width: 100%;
+        border: 1px solid #8793a3;
+        border-radius: 6px;
+        padding: 10px;
+        font: inherit;
+      }
+
+      textarea {
+        min-height: 92px;
+      }
+
+      button {
+        border: 1px solid #4f5d6d;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #1d2733;
+        padding: 8px 12px;
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Cue Weak Label Form Demo</h1>
+      <p>
+        This local page is intentionally safe and synthetic. Some fields use weak
+        visible labels so Cue can explain the page before proposing a confirmed fill.
+      </p>
+
+      <section aria-labelledby="request-heading">
+        <h2 id="request-heading">Local Request</h2>
+        <form onsubmit="event.preventDefault();">
+          <div class="field">
+            <span class="weak-label">Item</span>
+            <input
+              id="demo-request-topic"
+              name="demo-request-topic"
+              type="text"
+              value="Accessibility workflow review">
+          </div>
+
+          <div class="field">
+            <span class="weak-label">Note</span>
+            <textarea id="demo-safe-note" name="demo-safe-note">Ready for Cue to review.</textarea>
+          </div>
+
+          <button type="button">Go</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

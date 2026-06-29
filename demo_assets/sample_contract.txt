@@ -10,8 +10,13 @@ for a sample dashboard and a sample document.
 
 Renewal notice: either party may request changes by July 15, 2026.
 
+Delivery deadline: Demo Studio will deliver the local review summary by
+July 18, 2026.
+
 Demo obligations:
 - Summaries must identify relevant sections without changing the source file.
 - Field filling is allowed only in the local demo dashboard after confirmation.
 - Terminal workflows remain read-only unless terminal write is explicitly
   enabled and confirmed.
+- The demo recording must show policy tier, verification status, redacted audit
+  status, and Cerebras latency without revealing secrets.

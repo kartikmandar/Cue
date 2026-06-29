@@ -1,0 +1,17 @@
+Cue Demo Project Description
+
+Cue is a blind-first Mac work operator for safe, user-initiated desktop work.
+The demo uses local files only: a project brief, a synthetic contract, a local
+dashboard, a weakly labeled form, the official hackathon PDF copy, TextEdit, and
+Terminal.
+
+What to show:
+- Cue opens local work materials and summarizes them.
+- Cue proposes short workflows before acting.
+- State-changing actions require confirmation.
+- Terminal handoff remains read-only by default.
+- The app surfaces verification, policy tier, redacted audit status, and
+  Cerebras timing without exposing secrets.
+
+No real customer data, credentials, private documents, or account details are
+included in these assets.
