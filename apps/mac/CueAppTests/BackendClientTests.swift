@@ -179,6 +179,86 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(state.auditEvents.first?.eventType, "verification_result")
     }
 
+    func testChatPostsCommandAndDecodesConversationResponse() async throws {
+        let payload = """
+        {
+          "conversation_id": "conversation-123",
+          "assistant_message": "I can do that. Approve opening TextEdit?",
+          "mode": "action_preview",
+          "session": {
+            "session_id": "session-123",
+            "state": "awaiting_workflow_approval",
+            "workflow_plan": {
+              "workflow_id": "workflow-123",
+              "narration": "Cue can open TextEdit after approval.",
+              "workflow_required": true,
+              "workflow_category": "app_launch",
+              "risk_level": "low",
+              "approval_tier": "confirm_each_action",
+              "confirmation_prompt": "Approve opening TextEdit?",
+              "expected_outcome": "TextEdit is active.",
+              "risk_reasons": [],
+              "requires_reviewer_approval": false,
+              "redaction_applied": false,
+              "allowed_by_policy": true,
+              "policy_reason": "Allowed for test.",
+              "audit_event_summary": "TextEdit open previewed.",
+              "steps": []
+            },
+            "current_step_id": null,
+            "verified_steps": [],
+            "last_verification": null,
+            "narration": {
+              "summary": "Approve opening TextEdit?",
+              "speakable_text": "Approve opening TextEdit?",
+              "redaction_applied": false
+            },
+            "focus": {
+              "active_app": "CueApp",
+              "active_window": "Cue",
+              "focused_element": { "status": "known", "title": "Cue request" },
+              "cursor_position": { "status": "unknown", "reason": "not observed" },
+              "sources": ["test"]
+            },
+            "policy_decision": {
+              "allowed": true,
+              "approval_tier": "confirm_each_action",
+              "reason": "Allowed for test.",
+              "requires_reviewer_approval": false,
+              "redaction_applied": false
+            },
+            "confirmation_prompt": "Approve opening TextEdit?",
+            "timing": { "backend_ms": 5 },
+            "audit_summary": ["TextEdit open previewed."],
+            "audit_events": []
+          },
+          "suggested_replies": ["Approve", "Cancel"]
+        }
+        """
+        RecordingURLProtocol.stub(path: "/chat", response: payload)
+        let client = BackendClient(
+            baseURL: URL(string: "http://127.0.0.1:8765")!,
+            session: .recording
+        )
+
+        let response = try await client.chat(
+            command: "Open TextEdit",
+            conversationID: "conversation-123"
+        )
+
+        let request = try XCTUnwrap(RecordingURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/chat")
+        let body = try request.jsonBody()
+        XCTAssertEqual(body["request"] as? String, "Open TextEdit")
+        XCTAssertEqual(body["conversation_id"] as? String, "conversation-123")
+        XCTAssertEqual(response.conversationID, "conversation-123")
+        XCTAssertEqual(response.assistantMessage, "I can do that. Approve opening TextEdit?")
+        XCTAssertEqual(response.mode, .actionPreview)
+        XCTAssertEqual(response.session?.phase, .awaitingWorkflowApproval)
+        XCTAssertEqual(response.suggestedReplies, ["Approve", "Cancel"])
+    }
+
     func testAuditEventsDecodeEnvelope() async throws {
         RecordingURLProtocol.stub(
             path: "/audit/events",

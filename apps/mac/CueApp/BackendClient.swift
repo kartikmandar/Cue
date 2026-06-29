@@ -28,6 +28,14 @@ final class BackendClient: @unchecked Sendable {
         )
     }
 
+    func chat(command: String, conversationID: String? = nil) async throws -> CueChatResponse {
+        try await send(
+            path: "/chat",
+            method: "POST",
+            body: ChatRequest(request: command, conversationID: conversationID)
+        )
+    }
+
     func approve(sessionID: String, actor: String = "user") async throws -> CueSessionState {
         try await send(
             path: "/session/approve",
@@ -192,6 +200,16 @@ enum BackendClientError: Error, LocalizedError, Equatable {
 
 private struct PreviewRequest: Encodable {
     let request: String
+}
+
+private struct ChatRequest: Encodable {
+    let request: String
+    let conversationID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case request
+        case conversationID = "conversation_id"
+    }
 }
 
 private struct SessionRequest: Encodable {

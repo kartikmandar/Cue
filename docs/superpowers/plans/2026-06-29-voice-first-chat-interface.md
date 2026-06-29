@@ -40,7 +40,7 @@
 - [x] Wire `CueBackend.chat` and `POST /chat`.
 - [x] Add `test-chat` task.
 - [x] Run `pixi run test-chat` and `pixi run test-api`.
-- [ ] Commit backend chat slice.
+- [x] Commit backend chat slice.
 
 ### Task 2: Swift Chat Models And Client
 
@@ -53,10 +53,10 @@
 - Produces: `CueChatMessage`, `CueChatRole`, `CueChatResponse`, and `BackendClient.chat(command:conversationID:)`.
 - Consumes: `POST /chat` backend response from Task 1.
 
-- [ ] Write failing XCTest for `BackendClient.chat` request body and response decoding.
-- [ ] Run `pixi run test-mac` and confirm failure.
-- [ ] Add chat response models and client method.
-- [ ] Run `pixi run test-mac`.
+- [x] Write failing XCTest for `BackendClient.chat` request body and response decoding.
+- [x] Run `pixi run test-mac` and confirm failure.
+- [x] Add chat response models and client method.
+- [x] Run `pixi run test-mac`.
 - [ ] Commit Swift client/model slice.
 
 ### Task 3: Voice Input Controller

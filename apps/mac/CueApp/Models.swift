@@ -60,6 +60,35 @@ struct CueWorkflowPreviewResponse: Codable, Equatable {
     }
 }
 
+enum CueChatMode: String, Codable, Equatable {
+    case conversation
+    case actionPreview = "action_preview"
+    case screenAnswer = "screen_answer"
+    case blocked
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let rawValue = try decoder.singleValueContainer().decode(String.self)
+        self = CueChatMode(rawValue: rawValue) ?? .unknown
+    }
+}
+
+struct CueChatResponse: Codable, Equatable {
+    let conversationID: String
+    let assistantMessage: String
+    let mode: CueChatMode
+    let session: CueSessionState?
+    let suggestedReplies: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case conversationID = "conversation_id"
+        case assistantMessage = "assistant_message"
+        case mode
+        case session
+        case suggestedReplies = "suggested_replies"
+    }
+}
+
 struct CueVerificationResult: Codable, Equatable {
     let status: String
     let reason: String
