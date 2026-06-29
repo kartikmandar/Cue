@@ -7,6 +7,14 @@ from time import perf_counter
 from typing import Any
 
 from cue.agent_models import PlanReview, WorkflowPlan
+from cue.chat import (
+    assistant_message_for_session,
+    conversation_id as make_conversation_id,
+    conversational_reply,
+    is_conversation_only,
+    mode_for_session,
+    suggested_replies,
+)
 from cue.cli import CuaActionExecutor, LocalCliPlanner, observe_desktop
 from cue.config import Settings, load_settings
 from cue.context import DesktopObservation
@@ -86,6 +94,32 @@ class CueBackend:
         if session.state == SessionState.BLOCKED.value:
             self._record_event(runtime, "block", session)
         return self._response(runtime, session, started_at=start)
+
+    def chat(
+        self,
+        request: str,
+        *,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        chat_id = make_conversation_id(conversation_id)
+        text = request.strip()
+        if is_conversation_only(text):
+            return {
+                "conversation_id": chat_id,
+                "assistant_message": conversational_reply(text),
+                "mode": "conversation",
+                "session": None,
+                "suggested_replies": suggested_replies(text),
+            }
+
+        session = self.preview(text)
+        return {
+            "conversation_id": chat_id,
+            "assistant_message": assistant_message_for_session(session),
+            "mode": mode_for_session(session),
+            "session": session,
+            "suggested_replies": suggested_replies(text),
+        }
 
     def approve(self, session_id: str, *, actor: str = "user") -> dict[str, Any]:
         start = perf_counter()

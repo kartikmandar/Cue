@@ -19,6 +19,14 @@ class SessionRequest(BaseModel):
     session_id: str
 
 
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request: str | None = None
+    text: str | None = None
+    conversation_id: str | None = None
+
+
 class ApproveRequest(SessionRequest):
     actor: str = "user"
 
@@ -52,6 +60,13 @@ def create_app(backend: CueBackend | None = None) -> FastAPI:
         if not text:
             raise HTTPException(status_code=400, detail="request text is required")
         return cue_backend.preview(text)
+
+    @app.post("/chat")
+    def chat(request: ChatRequest) -> dict:
+        text = (request.request or request.text or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="request text is required")
+        return cue_backend.chat(text, conversation_id=request.conversation_id)
 
     @app.post("/session/approve")
     def approve(request: ApproveRequest) -> dict:
