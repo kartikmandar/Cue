@@ -30,6 +30,7 @@ final class AppState: ObservableObject {
     private let permissionChecker: PermissionChecker
     private let speechController: SpeechController
     private let speechPreferenceStore: SpeechPreferenceStore
+    private var lastAutoSubmittedVoiceCommand: String?
     let voiceInputController: VoiceInputController
 
     init(
@@ -132,6 +133,22 @@ final class AppState: ObservableObject {
                 )
             )
         }
+    }
+
+    func prepareForVoiceCommandCapture() {
+        lastAutoSubmittedVoiceCommand = nil
+    }
+
+    func sendVoiceCommandIfTranscriptReady(voiceState: VoiceInputState) async {
+        guard inputMode == .voice else { return }
+        guard voiceState == .transcribing else { return }
+        guard !phase.isBusy else { return }
+        let command = commandText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else { return }
+        guard command != lastAutoSubmittedVoiceCommand else { return }
+
+        lastAutoSubmittedVoiceCommand = command
+        await sendChatCommand(command)
     }
 
     func approveWorkflow() async {

@@ -86,7 +86,7 @@ class IntentAgent:
                 reason="The request asks to open or activate an app.",
             )
 
-        if _contains_any(text, _ANSWER_TERMS):
+        if _is_read_only_answer_request(text):
             return _intent(
                 normalized,
                 WorkflowCategory.ANSWER,
@@ -144,9 +144,21 @@ def _is_app_launch_only(text: str) -> bool:
     )
 
 
+def _is_read_only_answer_request(text: str) -> bool:
+    return _contains_any(text, _ANSWER_TERMS) and not _contains_any(
+        text,
+        _STATE_CHANGE_TERMS,
+    )
+
+
 _ANSWER_TERMS = (
     "what is on my screen",
     "what's on my screen",
+    "what is happening on my screen",
+    "what's happening on my screen",
+    "what is happening on the screen",
+    "what's happening on the screen",
+    "happening on the screen",
     "what app am i in",
     "where is my focus",
     "summarize",

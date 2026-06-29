@@ -17,8 +17,10 @@ class Narrator:
         app = observation.active_app or "unknown app"
         window = observation.active_window or "unknown window"
         focus = _focus_text(observation)
-        cursor = _cursor_text(observation)
-        text = f"Current screen: {app}, window {window}. Focus: {focus}. Cursor: {cursor}."
+        parts = [f"Current screen: {app}, window {window}."]
+        if focus:
+            parts.append(f"Focus: {focus}.")
+        text = " ".join(parts)
         return NarrationResult(summary=text, speakable_text=text)
 
     def describe_plan(self, plan: WorkflowPlan) -> NarrationResult:
@@ -95,19 +97,12 @@ class Narrator:
 def _focus_text(observation: DesktopObservation) -> str:
     focus = observation.focused_element
     if focus.status != "known":
-        return focus.reason or "unknown"
+        return ""
 
     parts = [focus.role, focus.title]
     if focus.value:
         parts.append(f"value {focus.value}")
     return ", ".join(part for part in parts if part) or "known focus"
-
-
-def _cursor_text(observation: DesktopObservation) -> str:
-    cursor = observation.cursor_position
-    if cursor.status != "known":
-        return cursor.reason or "unknown"
-    return f"{cursor.x}, {cursor.y}"
 
 
 def _join_or_none(values: list[str]) -> str | None:

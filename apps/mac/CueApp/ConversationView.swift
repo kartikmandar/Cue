@@ -309,6 +309,10 @@ private struct VoiceComposerView: View {
         .onChange(of: voiceInputController.transcript) { _, transcript in
             guard appState.inputMode == .voice else { return }
             appState.commandText = transcript
+            submitVoiceCommandIfReady(voiceState: voiceInputController.state)
+        }
+        .onChange(of: voiceInputController.state) { _, state in
+            submitVoiceCommandIfReady(voiceState: state)
         }
         .onAppear {
             installPushToTalkShortcut()
@@ -469,6 +473,7 @@ private struct VoiceComposerView: View {
 
     private func beginPushToTalk() {
         guard appState.inputMode == .voice else { return }
+        appState.prepareForVoiceCommandCapture()
         voiceInputController.clearTranscript()
         appState.commandText = ""
         voiceInputController.startListening()
@@ -476,5 +481,11 @@ private struct VoiceComposerView: View {
 
     private func endPushToTalk() {
         voiceInputController.stopListening()
+    }
+
+    private func submitVoiceCommandIfReady(voiceState: VoiceInputState) {
+        Task {
+            await appState.sendVoiceCommandIfTranscriptReady(voiceState: voiceState)
+        }
     }
 }

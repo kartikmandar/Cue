@@ -78,13 +78,35 @@ def make_plan():
     )
 
 
-def test_narrates_current_screen_focus_and_cursor():
+def test_narrates_current_screen_focus_without_cursor_coordinates():
     narration = Narrator().describe_screen(make_observation())
 
     assert "TextEdit" in narration.speakable_text
     assert "Untitled" in narration.speakable_text
     assert "Document body" in narration.speakable_text
-    assert "80, 160" in narration.speakable_text
+    assert "80, 160" not in narration.speakable_text
+    assert "Cursor:" not in narration.speakable_text
+
+
+def test_screen_narration_omits_driver_diagnostics_when_focus_is_unknown():
+    observation = DesktopObservation(
+        active_app="CueApp",
+        active_window="Cue",
+        focused_element=FocusedElement(
+            status="unknown",
+            source="cua:get_window_state",
+            reason=(
+                "Cua Driver 0.6.8 does not expose a standalone focused element "
+                "tool; focus must be inferred from the AX window state."
+            ),
+        ),
+        cursor_position=CursorPosition(status="known", x=802, y=638, source="test"),
+        sources=["test"],
+    )
+
+    narration = Narrator().describe_screen(observation)
+
+    assert narration.speakable_text == "Current screen: CueApp, window Cue."
 
 
 def test_narrates_plan_confirmation_block_verification_and_next_step():

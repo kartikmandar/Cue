@@ -56,6 +56,45 @@ final class AppStateConversationTests: XCTestCase {
     }
 
     @MainActor
+    func testVoiceTranscriptAutoSubmitWaitsForTranscribingState() async {
+        let client = StubBackendClient()
+        let appState = AppState(backendClient: client)
+        appState.commandText = "Open Notes"
+
+        await appState.sendVoiceCommandIfTranscriptReady(voiceState: .listening)
+        XCTAssertEqual(client.chatRequests, [])
+
+        await appState.sendVoiceCommandIfTranscriptReady(voiceState: .transcribing)
+
+        XCTAssertEqual(client.chatRequests, [
+            StubBackendClient.ChatRequest(command: "Open Notes", conversationID: nil)
+        ])
+        XCTAssertEqual(appState.commandText, "")
+    }
+
+    @MainActor
+    func testVoiceTranscriptAutoSubmitDoesNotRepeatWithinSameCapture() async {
+        let client = StubBackendClient()
+        let appState = AppState(backendClient: client)
+        appState.prepareForVoiceCommandCapture()
+        appState.commandText = "Open Notes"
+
+        await appState.sendVoiceCommandIfTranscriptReady(voiceState: .transcribing)
+        appState.commandText = "Open Notes"
+        await appState.sendVoiceCommandIfTranscriptReady(voiceState: .transcribing)
+
+        XCTAssertEqual(client.chatRequests, [
+            StubBackendClient.ChatRequest(command: "Open Notes", conversationID: nil)
+        ])
+
+        appState.prepareForVoiceCommandCapture()
+        appState.commandText = "Open Notes"
+        await appState.sendVoiceCommandIfTranscriptReady(voiceState: .transcribing)
+
+        XCTAssertEqual(client.chatRequests.count, 2)
+    }
+
+    @MainActor
     func testApproveWorkflowRunsFirstApprovedStep() async {
         let client = StubBackendClient(
             approveResponse: CueSessionState(

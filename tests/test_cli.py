@@ -10,6 +10,7 @@ from cue.config import Settings
 from cue.context import DesktopObservation
 from cue.focus import CursorPosition, FocusedElement
 from cue.policy import ApprovalTier
+from cue.reviewer import review_plan
 
 
 class FakeExecutor:
@@ -198,6 +199,19 @@ def test_local_cli_planner_opens_notes_app_for_notes_launch_request():
     assert plan.steps[0].action.action_type == ActionType.OPEN_APP
     assert plan.steps[0].action.payload == {"app_name": "Notes"}
     assert plan.steps[0].action.expected_app == "Notes"
+
+
+def test_local_cli_planner_treats_screen_question_as_read_only_answer():
+    plan = LocalCliPlanner(settings=make_settings())(
+        "Can you see and tell me what is happening on the screen",
+        make_observation(app="CueApp", window="Cue", focus="Command palette"),
+    )
+    review = review_plan(plan)
+
+    assert plan.workflow_category == WorkflowCategory.ANSWER
+    assert plan.workflow_required is False
+    assert plan.steps == []
+    assert review.approved is True
 
 
 def test_cli_next_without_approval_does_not_execute_state_changing_step(capsys):
