@@ -175,6 +175,8 @@ def test_complete_returns_text_latency_usage_and_time_info():
             "completion_time": 0.031,
             "total_time": 0.044,
         },
+        provider="cerebras",
+        model="gemma-4-31b",
     )
 
 

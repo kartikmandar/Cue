@@ -2,24 +2,15 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from typing import Any
 
 from cerebras.cloud.sdk import Cerebras
 
 from cue.config import Settings, load_settings
+from cue.model_clients import Message, ModelResult, ResponseFormat
 
 
-Message = Mapping[str, Any]
-ResponseFormat = Mapping[str, Any]
-
-
-@dataclass(frozen=True)
-class CerebrasResult:
-    text: str
-    latency_ms: int
-    usage: dict[str, Any]
-    time_info: dict[str, Any]
+CerebrasResult = ModelResult
 
 
 class CerebrasClient:
@@ -64,6 +55,8 @@ class CerebrasClient:
             latency_ms=int(round((finished_at - started_at) * 1000)),
             usage=_as_dict(_get(response, "usage")),
             time_info=_as_dict(_get(response, "time_info")),
+            provider="cerebras",
+            model=self.settings.cerebras_model,
         )
 
 

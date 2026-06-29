@@ -115,6 +115,35 @@ def test_planner_prompts_with_context_policy_and_json_schema():
     assert plan.steps[0].action.action_type == ActionType.OPEN_APP
 
 
+def test_planner_stores_last_model_result_for_timing_metadata():
+    client = FakeClient(
+        plan_payload(
+            steps=[
+                workflow_step(
+                    "step-1",
+                    "open_app",
+                    "TextEdit is active.",
+                    {"app_name": "TextEdit"},
+                )
+            ]
+        )
+    )
+    planner = WorkflowPlanner(client=client, settings=make_settings())
+
+    planner.create_plan(
+        normalized_input=normalize_input("Open TextEdit"),
+        intent=classify_intent(normalize_input("Open TextEdit")),
+        observation_context="Active: Finder | Downloads",
+        state_graph_summary="No pending workflow.",
+        policy_summary="TextEdit is allowed.",
+    )
+
+    assert planner.last_result is not None
+    assert planner.last_result.latency_ms == 12
+    assert planner.last_result.usage == {"total_tokens": 42}
+    assert planner.last_result.time_info == {"total_time": 0.012}
+
+
 def test_planner_caps_workflow_steps_to_settings_limit():
     steps = [
         workflow_step(f"step-{index}", "verify", f"Verification {index}.")

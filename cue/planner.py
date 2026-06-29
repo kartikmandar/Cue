@@ -10,6 +10,7 @@ from cue.cerebras_client import CerebrasClient
 from cue.config import Settings, load_settings
 from cue.input_agent import normalize_input
 from cue.intent_agent import classify_intent
+from cue.model_clients import ModelResult
 
 
 class WorkflowPlanner:
@@ -21,6 +22,7 @@ class WorkflowPlanner:
     ) -> None:
         self.settings = settings or load_settings()
         self.client = client or CerebrasClient(settings=self.settings)
+        self.last_result: ModelResult | None = None
 
     def create_plan(
         self,
@@ -44,6 +46,7 @@ class WorkflowPlanner:
             ),
             response_format=response_format,
         )
+        self.last_result = result
         plan = _parse_plan(result.text)
         return _cap_steps(plan, self.settings.max_workflow_steps)
 
