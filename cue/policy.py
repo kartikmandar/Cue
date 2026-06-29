@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from urllib.parse import urlparse
 
+from cue.actions import WorkflowCategory
 from cue.config import Settings
-from cue.redaction import contains_sensitive_text, redact_text
+from cue.redaction import contains_sensitive_context, contains_sensitive_text, redact_text
 
 
 class ApprovalTier(str, Enum):
@@ -95,6 +97,12 @@ def _matches_any(value: str, candidates: list[str] | tuple[str, ...]) -> bool:
     return any(candidate.casefold() in normalized for candidate in candidates)
 
 
+def _workflow_category_value(category: WorkflowCategory | str | None) -> str:
+    if isinstance(category, WorkflowCategory):
+        return category.value
+    return _normalized(category)
+
+
 def _app_is_configured_blocked(app: str, settings: Settings) -> bool:
     return _matches_any(app, settings.blocked_apps)
 
@@ -105,6 +113,35 @@ def _app_is_sensitive(app: str) -> bool:
 
 def _context_text(app: str, domain: str | None, summary: str | None) -> str:
     return " ".join(part for part in (app, domain or "", summary or "") if part)
+
+
+def _domain_host(domain: str | None) -> str:
+    if not domain:
+        return ""
+    raw = domain.strip()
+    parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+    host = parsed.hostname or raw.split("/", 1)[0]
+    return host.casefold()
+
+
+def _domain_matches(host: str, candidate: str) -> bool:
+    allowed = _domain_host(candidate)
+    return bool(allowed and (host == allowed or host.endswith(f".{allowed}")))
+
+
+def _domain_is_allowed(domain: str | None, settings: Settings) -> bool:
+    host = _domain_host(domain)
+    if not host or not settings.allowed_domains:
+        return True
+    return any(_domain_matches(host, allowed) for allowed in settings.allowed_domains)
+
+
+def _domain_is_configured_blocked(domain: str | None, settings: Settings) -> bool:
+    blocked_domains = getattr(settings, "blocked_domains", [])
+    host = _domain_host(domain)
+    if not host or not blocked_domains:
+        return False
+    return any(_domain_matches(host, blocked) for blocked in blocked_domains)
 
 
 def _audit_summary(app: str, action_type: str, summary: str | None) -> str:
@@ -130,7 +167,8 @@ def _decision(
         reason=reason,
         risk_reasons=risk_reasons,
         requires_reviewer_approval=approval_tier == ApprovalTier.GUARDIAN_REQUIRED,
-        redaction_required=contains_sensitive_text(summary),
+        redaction_required=contains_sensitive_text(summary)
+        or contains_sensitive_context(summary),
         audit_event_summary=_audit_summary(app, action_type, summary),
     )
 
@@ -142,9 +180,12 @@ def evaluate_policy(
     settings: Settings,
     summary: str | None = None,
     domain: str | None = None,
+    workflow_category: WorkflowCategory | str | None = None,
 ) -> PolicyDecision:
     action = _normalized(action_type)
+    category = _workflow_category_value(workflow_category)
     context = _context_text(app, domain, summary)
+    sensitive_context = contains_sensitive_context(context)
 
     if _app_is_sensitive(app) or _app_is_configured_blocked(app, settings):
         return _decision(
@@ -157,12 +198,52 @@ def evaluate_policy(
             summary=summary,
         )
 
+    if category == WorkflowCategory.SENSITIVE.value or sensitive_context:
+        return _decision(
+            allowed=False,
+            approval_tier=ApprovalTier.BLOCKED,
+            reason="Blocked because the workflow touches credentials or sensitive auth.",
+            risk_reasons=["sensitive workflow blocked by policy"],
+            app=app,
+            action_type=action_type,
+            summary=summary,
+        )
+
     if _matches_any(context, _BLOCKED_CONTEXT_KEYWORDS):
         return _decision(
             allowed=False,
             approval_tier=ApprovalTier.BLOCKED,
             reason="Blocked because the workflow touches banking, payment, or payroll.",
             risk_reasons=["blocked context: banking/payment/payroll"],
+            app=app,
+            action_type=action_type,
+            summary=summary,
+        )
+
+    if _domain_is_configured_blocked(domain, settings):
+        return _decision(
+            allowed=False,
+            approval_tier=ApprovalTier.BLOCKED,
+            reason="Blocked because the current browser domain is denied by policy.",
+            risk_reasons=["domain denied by policy"],
+            app=app,
+            action_type=action_type,
+            summary=summary,
+        )
+
+    browser_category = category in {
+        WorkflowCategory.BROWSER.value,
+        WorkflowCategory.PDF.value,
+    }
+    browser_app = _matches_any(app, ("safari", "chrome", "browser"))
+    if domain and (browser_category or browser_app) and not _domain_is_allowed(
+        domain, settings
+    ):
+        return _decision(
+            allowed=False,
+            approval_tier=ApprovalTier.BLOCKED,
+            reason="Blocked because the current browser domain is not allowlisted.",
+            risk_reasons=["domain not allowlisted"],
             app=app,
             action_type=action_type,
             summary=summary,
@@ -184,6 +265,23 @@ def evaluate_policy(
             approval_tier=ApprovalTier.CONFIRM_SENSITIVE,
             reason="Terminal write is enabled and requires stronger confirmation.",
             risk_reasons=["terminal write requires sensitive confirmation"],
+            app=app,
+            action_type=action_type,
+            summary=summary,
+        )
+
+    if (
+        app
+        and _normalized(app) != "unknown"
+        and settings.allowed_apps
+        and not _matches_any(app, settings.allowed_apps)
+        and action not in _READ_ONLY_ACTIONS
+    ):
+        return _decision(
+            allowed=False,
+            approval_tier=ApprovalTier.BLOCKED,
+            reason="Blocked because the target app is not allowlisted.",
+            risk_reasons=["app not allowlisted"],
             app=app,
             action_type=action_type,
             summary=summary,

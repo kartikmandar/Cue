@@ -30,6 +30,27 @@ _ACCOUNT_ID_RE = re.compile(
     r"\b(?:acct|account|customer|user)[_-][A-Za-z0-9]{6,}\b",
     re.IGNORECASE,
 )
+_SENSITIVE_CONTEXT_RE = re.compile(
+    r"\b("
+    r"passwords?|passcodes?|credentials?|mfa|otp|2fa|verification\s+code|"
+    r"security\s+code|secret|keychain|password\s+manager"
+    r")\b",
+    re.IGNORECASE,
+)
+_PROMPT_CONTENT_RE = re.compile(
+    r"\bprompt\s*:\s*.*?(?=\s+(?:full[\s_-]?document(?:[\s_-]?text)?|"
+    r"(?:raw_)?screenshot)\s*[:=]|$)",
+    re.IGNORECASE,
+)
+_DOCUMENT_CONTENT_RE = re.compile(
+    r"\bfull[\s_-]?document(?:[\s_-]?text)?\s*[:=]\s*.*?"
+    r"(?=\s+(?:raw_)?screenshot\s*[:=]|\s+prompt\s*:|$)",
+    re.IGNORECASE,
+)
+_RAW_CAPTURE_RE = re.compile(
+    r"\b(?:raw_)?screenshot(?:_ref)?\s*[:=]\s*\S+",
+    re.IGNORECASE,
+)
 
 
 def _redact_secret_label(match: re.Match[str]) -> str:
@@ -71,3 +92,20 @@ def contains_sensitive_text(text: str | None) -> bool:
             _ACCOUNT_ID_RE,
         )
     )
+
+
+def contains_sensitive_context(text: str | None) -> bool:
+    if not text:
+        return False
+    return bool(_SENSITIVE_CONTEXT_RE.search(str(text)))
+
+
+def redact_for_persistence(text: str | None) -> str:
+    if not text:
+        return ""
+
+    redacted = str(text)
+    redacted = _PROMPT_CONTENT_RE.sub("[REDACTED_PROMPT]", redacted)
+    redacted = _DOCUMENT_CONTENT_RE.sub("[REDACTED_DOCUMENT]", redacted)
+    redacted = _RAW_CAPTURE_RE.sub("[REDACTED_RAW_CAPTURE]", redacted)
+    return redact_text(redacted)

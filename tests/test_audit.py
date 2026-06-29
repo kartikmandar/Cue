@@ -1,6 +1,8 @@
 import json
 
-from cue.audit import AuditEvent, append_audit_event
+import pytest
+
+from cue.audit import AuditEvent, TASK7_AUDIT_EVENT_TYPES, append_audit_event, record_audit_event
 from cue.policy import ApprovalTier
 
 
@@ -77,3 +79,59 @@ def test_audit_event_never_persists_raw_sensitive_payloads(tmp_path):
         "latency_ms",
         "summary",
     }
+
+
+def test_records_task_7_audit_event_types_with_redacted_summaries(tmp_path):
+    log_path = tmp_path / "audit.jsonl"
+    required_events = {
+        "preview",
+        "confirmation",
+        "execution",
+        "block",
+        "reviewer_request",
+        "reviewer_decision",
+        "verification_result",
+    }
+
+    assert required_events <= TASK7_AUDIT_EVENT_TYPES
+
+    for event_type in sorted(required_events):
+        record_audit_event(
+            log_path,
+            event_type=event_type,
+            session_id="session-7",
+            workflow_id="workflow-7",
+            app="TextEdit",
+            action_type="type_text",
+            approval_tier=ApprovalTier.CONFIRM_EACH_ACTION,
+            policy_reason="Allowed after confirmation.",
+            verification_status="not_started",
+            latency_ms=7,
+            summary=(
+                "prompt: write to alex@example.com. "
+                "raw_screenshot=/tmp/private.png password: swordfish"
+            ),
+        )
+
+    raw_log = log_path.read_text(encoding="utf-8")
+    assert "alex@example.com" not in raw_log
+    assert "swordfish" not in raw_log
+    assert "raw_screenshot" not in raw_log
+    assert len(raw_log.splitlines()) == len(required_events)
+
+
+def test_rejects_unknown_audit_event_type(tmp_path):
+    with pytest.raises(ValueError, match="unsupported audit event type"):
+        record_audit_event(
+            tmp_path / "audit.jsonl",
+            event_type="raw_prompt_dump",
+            session_id="session-7",
+            workflow_id="workflow-7",
+            app="TextEdit",
+            action_type="none",
+            approval_tier=ApprovalTier.INFORM_ONLY,
+            policy_reason="No raw prompt dumps.",
+            verification_status="not_started",
+            latency_ms=0,
+            summary="prompt: raw private request",
+        )

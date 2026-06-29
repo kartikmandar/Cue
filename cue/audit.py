@@ -4,11 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 from pathlib import Path
-import re
 from typing import Any
 
 from cue.policy import ApprovalTier
-from cue.redaction import redact_text
+from cue.redaction import redact_for_persistence
 
 
 @dataclass(frozen=True)
@@ -25,11 +24,15 @@ class AuditEvent:
     summary: str
 
 
-_RAW_REFERENCE_RE = re.compile(
-    r"\b(?:raw_)?screenshot\s*[:=]\s*\S+|\bfull_document\s*[:=]\s*\S+",
-    re.IGNORECASE,
-)
-_PROMPT_LABEL_RE = re.compile(r"\bprompt\s*:", re.IGNORECASE)
+TASK7_AUDIT_EVENT_TYPES = {
+    "preview",
+    "confirmation",
+    "execution",
+    "block",
+    "reviewer_request",
+    "reviewer_decision",
+    "verification_result",
+}
 
 
 def _tier_value(approval_tier: ApprovalTier | str) -> str:
@@ -39,9 +42,7 @@ def _tier_value(approval_tier: ApprovalTier | str) -> str:
 
 
 def _safe_summary(summary: str) -> str:
-    without_raw_refs = _RAW_REFERENCE_RE.sub("[REDACTED_RAW_CAPTURE]", summary)
-    without_prompt_label = _PROMPT_LABEL_RE.sub("request summary:", without_raw_refs)
-    redacted = redact_text(without_prompt_label)
+    redacted = redact_for_persistence(summary)
     return " ".join(redacted.split())[:500]
 
 
@@ -64,3 +65,37 @@ def append_audit_event(path: str | Path, event: AuditEvent) -> dict[str, Any]:
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
     return record
+
+
+def record_audit_event(
+    path: str | Path,
+    *,
+    event_type: str,
+    session_id: str,
+    workflow_id: str,
+    app: str,
+    action_type: str,
+    approval_tier: ApprovalTier | str,
+    policy_reason: str,
+    verification_status: str = "not_started",
+    latency_ms: int = 0,
+    summary: str = "",
+) -> dict[str, Any]:
+    if event_type not in TASK7_AUDIT_EVENT_TYPES:
+        raise ValueError(f"unsupported audit event type: {event_type}")
+
+    return append_audit_event(
+        path,
+        AuditEvent(
+            event_type=event_type,
+            session_id=session_id,
+            workflow_id=workflow_id,
+            app=app,
+            action_type=action_type,
+            approval_tier=approval_tier,
+            policy_reason=policy_reason,
+            verification_status=verification_status,
+            latency_ms=latency_ms,
+            summary=summary,
+        ),
+    )

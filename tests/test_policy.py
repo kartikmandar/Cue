@@ -1,11 +1,12 @@
 from cue.config import Settings
+from cue.actions import WorkflowCategory
 from cue.policy import ApprovalTier, PolicyDecision, evaluate_policy
 
 
 def make_settings(**overrides):
     values = {
         "cerebras_api_key": "test-key",
-        "allowed_apps": ["TextEdit", "Preview", "Safari", "Terminal"],
+        "allowed_apps": ["TextEdit", "Preview", "Safari", "Terminal", "Finder"],
         "blocked_apps": ["Keychain Access", "1Password", "Blocked Demo"],
         "allowed_domains": ["localhost", "127.0.0.1", "demo.local"],
     }
@@ -139,3 +140,37 @@ def test_read_only_actions_are_inform_only_and_sensitive_text_needs_redaction():
     assert decision.allowed is True
     assert decision.approval_tier == ApprovalTier.INFORM_ONLY
     assert decision.redaction_required is True
+
+
+def test_browser_domain_must_be_allowed_when_domain_state_is_available():
+    settings = make_settings(allowed_domains=["localhost", "demo.local"])
+
+    decision = evaluate_policy(
+        app="Safari",
+        action_type="click",
+        domain="unknown.example.com",
+        workflow_category=WorkflowCategory.BROWSER,
+        summary="Click a safe local demo button.",
+        settings=settings,
+    )
+
+    assert decision.allowed is False
+    assert decision.approval_tier == ApprovalTier.BLOCKED
+    assert any("domain" in reason for reason in decision.risk_reasons)
+
+
+def test_sensitive_workflow_category_blocks_password_contexts_before_action():
+    settings = make_settings()
+
+    decision = evaluate_policy(
+        app="TextEdit",
+        action_type="type_text",
+        workflow_category=WorkflowCategory.SENSITIVE,
+        summary="Type the password from this page into the form.",
+        settings=settings,
+    )
+
+    assert decision.allowed is False
+    assert decision.approval_tier == ApprovalTier.BLOCKED
+    assert decision.redaction_required is True
+    assert any("sensitive" in reason for reason in decision.risk_reasons)
