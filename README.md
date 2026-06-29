@@ -4,8 +4,9 @@ Blind-first macOS accessibility copilot for the Cerebras x Google DeepMind Gemma
 
 Cue is a native Mac work operator for blind and low-vision desktop workflows. It
 uses a local Python backend, a SwiftUI/AppKit menu-bar app, Cua Driver for
-desktop observation/actions, and Cerebras Gemma 4 for planning, explanation,
-verification, and narration when live model calls are enabled.
+desktop observation/actions, and a switchable Gemma 4 provider path for
+planning, explanation, verification, and narration when live model calls are
+enabled.
 
 ## Development
 
@@ -18,6 +19,33 @@ pixi run test-mac
 ```
 
 Implementation tasks are tracked in the outer repo's `PLAN.md`.
+
+## Model Providers
+
+Cue can route the normal chat and workflow-planning path through Cerebras or
+OpenRouter. The in-app Provider segmented control updates the backend mode, so
+new requests use the selected provider immediately; it is not a separate
+benchmark-only path.
+
+Configure the providers in `Cue/.env`:
+
+```dotenv
+CEREBRAS_API_KEY=replace_with_hackathon_key
+CEREBRAS_MODEL=gemma-4-31b
+
+OPENROUTER_API_KEY=replace_with_openrouter_key
+OPENROUTER_MODEL=google/gemma-4-31b-it:free
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_HTTP_REFERER=
+OPENROUTER_APP_TITLE=Cue
+
+CUE_MODEL_PROVIDER=cerebras
+```
+
+`CUE_MODEL_PROVIDER` controls the startup provider. The app can switch to
+OpenRouter only when `OPENROUTER_API_KEY` is configured. Optional
+`OPENROUTER_HTTP_REFERER` and `OPENROUTER_APP_TITLE` values are sent as
+OpenRouter attribution headers when present.
 
 ## Task 16 Validation Snapshot
 
@@ -59,6 +87,12 @@ next-step, and cancel controls. Raw workflow, focus, policy, verification,
 privacy, timing, and redacted audit details are hidden by default behind the
 `Details` button.
 
+Use the Provider control in the top bar to switch new chat and workflow calls
+between Cerebras and OpenRouter. The timing details show the active provider,
+model, model latency, token usage, backend timing, and any provider timing
+metadata returned by the backend so latency differences are visible from the
+app while using the normal workflow.
+
 Open the palette with `Shift` + `Command` + `Space` while the app is running, or
 from the menu-bar item.
 
@@ -83,7 +117,13 @@ curl -sS http://127.0.0.1:8765/health
 Expected response:
 
 ```json
-{"status":"ok","app":"cue"}
+{
+  "status": "ok",
+  "app": "cue",
+  "yolo_mode": false,
+  "model_provider": "cerebras",
+  "model": "gemma-4-31b"
+}
 ```
 
 ## Cua Driver
