@@ -15,8 +15,20 @@ from cue.safety import (
 def make_settings(**overrides):
     values = {
         "cerebras_api_key": "test-key",
-        "allowed_apps": ["TextEdit", "Preview", "Safari", "Google Chrome", "Terminal", "Finder"],
-        "blocked_apps": ["Keychain Access", "1Password", "Bitwarden", "System Settings"],
+        "allowed_apps": [
+            "TextEdit",
+            "Preview",
+            "Safari",
+            "Google Chrome",
+            "Terminal",
+            "Finder",
+        ],
+        "blocked_apps": [
+            "Keychain Access",
+            "1Password",
+            "Bitwarden",
+            "System Settings",
+        ],
         "allowed_domains": ["localhost", "127.0.0.1", "demo.local"],
     }
     values.update(overrides)
@@ -105,7 +117,12 @@ def test_blocks_destructive_multi_step_flow_before_preview():
     plan = make_plan(
         WorkflowCategory.DESKTOP,
         steps=[
-            make_step("step-1", ActionType.OPEN_APP, expected_app="Finder", payload={"app_name": "Finder"}),
+            make_step(
+                "step-1",
+                ActionType.OPEN_APP,
+                expected_app="Finder",
+                payload={"app_name": "Finder"},
+            ),
             make_step(
                 "step-2",
                 ActionType.HOTKEY,
@@ -160,7 +177,12 @@ def test_allows_textedit_workflow_before_preview():
         WorkflowCategory.DOCUMENT,
         steps=[
             make_step("step-1", ActionType.OPEN_APP, payload={"app_name": "TextEdit"}),
-            make_step("step-2", ActionType.TYPE_TEXT, payload={"text": "Cue"}, outcome="Cue is typed."),
+            make_step(
+                "step-2",
+                ActionType.TYPE_TEXT,
+                payload={"text": "Cue"},
+                outcome="Cue is typed.",
+            ),
             make_step("step-3", ActionType.VERIFY, outcome="The title Cue is visible."),
         ],
     )
@@ -243,7 +265,9 @@ def test_focus_drift_requires_reobservation_and_renewed_confirmation():
         settings=make_settings(),
         preview_decision=preview_decision,
         preview_snapshot=snapshot(app="TextEdit", window="Untitled", focus="body"),
-        current_snapshot=snapshot(app="Safari", window="Dashboard", focus="search", domain="demo.local"),
+        current_snapshot=snapshot(
+            app="Safari", window="Dashboard", focus="search", domain="demo.local"
+        ),
     )
 
     assert decision.allowed is False
@@ -269,7 +293,9 @@ def test_sensitive_apps_block_screenshots_and_actions_before_execution():
         settings=make_settings(),
         preview_decision=preview_decision,
         preview_snapshot=snapshot(app="TextEdit"),
-        current_snapshot=snapshot(app="Keychain Access", window="Passwords", focus="password table"),
+        current_snapshot=snapshot(
+            app="Keychain Access", window="Passwords", focus="password table"
+        ),
     )
 
     assert decision.allowed is False
@@ -295,7 +321,14 @@ def test_step_risk_escalation_pauses_for_renewed_approval():
     preview_decision = evaluate_workflow_plan(
         make_plan(
             WorkflowCategory.APP_LAUNCH,
-            steps=[make_step("step-0", ActionType.OPEN_APP, expected_app="Terminal", payload={"app_name": "Terminal"})],
+            steps=[
+                make_step(
+                    "step-0",
+                    ActionType.OPEN_APP,
+                    expected_app="Terminal",
+                    payload={"app_name": "Terminal"},
+                )
+            ],
         ),
         settings=make_settings(allow_terminal_write=True),
         observation=snapshot(app="Terminal", window="zsh"),
@@ -344,3 +377,52 @@ def test_records_redacted_safety_audit_event(tmp_path):
     assert "alex@example.com" not in raw_log
     assert "swordfish" not in raw_log
     assert record["event_type"] == "preview"
+
+
+def test_yolo_mode_allows_destructive_sensitive_and_focus_drift_paths():
+    plan = make_plan(
+        WorkflowCategory.DESKTOP,
+        steps=[
+            make_step(
+                "step-1",
+                ActionType.OPEN_APP,
+                expected_app="Finder",
+                payload={"app_name": "Finder"},
+            ),
+            make_step(
+                "step-2",
+                ActionType.HOTKEY,
+                expected_app="Finder",
+                payload={"keys": ["command", "delete"]},
+                reason="Delete the existing project archive.",
+                outcome="The selected project archive is deleted.",
+            ),
+        ],
+    )
+    settings = make_settings(yolo_mode=True, allow_terminal_write=False)
+
+    preview_decision = evaluate_workflow_plan(
+        plan,
+        settings=settings,
+        observation=snapshot(app="Keychain Access", window="Passwords"),
+    )
+    step_decision = evaluate_step_before_execution(
+        plan.steps[1],
+        settings=settings,
+        preview_decision=preview_decision,
+        preview_snapshot=snapshot(app="Finder", window="Downloads", focus="list"),
+        current_snapshot=snapshot(
+            app="Safari",
+            window="Bank",
+            focus="pay",
+            domain="bank.example.com",
+        ),
+    )
+
+    assert preview_decision.allowed is True
+    assert preview_decision.action_allowed is True
+    assert preview_decision.approval_tier == ApprovalTier.INFORM_ONLY
+    assert step_decision.allowed is True
+    assert step_decision.action_allowed is True
+    assert step_decision.requires_renewed_confirmation is False
+    assert step_decision.requires_reviewer_approval is False

@@ -79,6 +79,30 @@ def evaluate_workflow_plan(
 ) -> SafetyDecision:
     snapshot = _coerce_snapshot(observation)
     summary = _plan_summary(plan)
+    if settings.yolo_mode:
+        decisions = [
+            evaluate_policy(
+                app=_step_app(step, snapshot),
+                action_type=step.action.action_type.value,
+                domain=_step_domain(step, snapshot),
+                workflow_category=plan.workflow_category,
+                summary=_step_summary(step, plan),
+                settings=settings,
+            )
+            for step in plan.steps
+        ]
+        return SafetyDecision(
+            allowed=True,
+            action_allowed=True,
+            approval_tier=ApprovalTier.INFORM_ONLY,
+            reason="YOLO mode is enabled; workflow safety gates are disabled.",
+            risk_reasons=["YOLO mode allows workflow preview"],
+            requires_reviewer_approval=False,
+            redaction_required=_redaction_required(summary),
+            audit_event_summary=redact_for_persistence(summary),
+            policy_decisions=decisions,
+        )
+
     if _plan_is_destructive_multi_step(plan):
         return SafetyDecision(
             allowed=False,
@@ -132,6 +156,27 @@ def evaluate_step_before_execution(
 ) -> SafetyDecision:
     preview = _coerce_snapshot(preview_snapshot)
     current = _coerce_snapshot(current_snapshot)
+    if settings.yolo_mode:
+        policy = evaluate_policy(
+            app=_step_app(step, current),
+            action_type=step.action.action_type.value,
+            domain=current.domain if current else None,
+            summary=_step_summary(step),
+            settings=settings,
+        )
+        return SafetyDecision(
+            allowed=True,
+            action_allowed=True,
+            approval_tier=ApprovalTier.INFORM_ONLY,
+            reason="YOLO mode is enabled; step safety gates are disabled.",
+            risk_reasons=["YOLO mode allows step execution"],
+            requires_reviewer_approval=False,
+            redaction_required=policy.redaction_required,
+            audit_event_summary=policy.audit_event_summary,
+            screenshot_allowed=True,
+            policy_decisions=[policy],
+        )
+
     if current and _screenshot_blocked_for_app(current.active_app, settings):
         return SafetyDecision(
             allowed=False,
@@ -239,7 +284,9 @@ def _combine_policy_decisions(
     blocked = [decision for decision in decisions if not decision.allowed]
     if blocked:
         tier = ApprovalTier.BLOCKED
-        risks = _unique(reason for decision in blocked for reason in decision.risk_reasons)
+        risks = _unique(
+            reason for decision in blocked for reason in decision.risk_reasons
+        )
         return SafetyDecision(
             allowed=False,
             action_allowed=False,
@@ -247,7 +294,9 @@ def _combine_policy_decisions(
             reason=blocked_reason,
             risk_reasons=risks,
             requires_reviewer_approval=False,
-            redaction_required=any(decision.redaction_required for decision in decisions),
+            redaction_required=any(
+                decision.redaction_required for decision in decisions
+            ),
             audit_event_summary=redact_for_persistence(
                 " | ".join(decision.audit_event_summary for decision in blocked)
                 or fallback_summary
@@ -372,7 +421,9 @@ def _payload_summary(payload: Mapping[str, Any]) -> str:
 
 
 def _plan_is_destructive_multi_step(plan: WorkflowPlan) -> bool:
-    return len(plan.steps) > 1 and any(_step_is_destructive(step) for step in plan.steps)
+    return len(plan.steps) > 1 and any(
+        _step_is_destructive(step) for step in plan.steps
+    )
 
 
 def _step_is_destructive(step: WorkflowStep) -> bool:

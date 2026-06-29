@@ -174,3 +174,21 @@ def test_sensitive_workflow_category_blocks_password_contexts_before_action():
     assert decision.approval_tier == ApprovalTier.BLOCKED
     assert decision.redaction_required is True
     assert any("sensitive" in reason for reason in decision.risk_reasons)
+
+
+def test_yolo_mode_allows_sensitive_and_terminal_actions_without_reviewer_gate():
+    settings = make_settings(yolo_mode=True, allow_terminal_write=False)
+
+    decision = evaluate_policy(
+        app="Keychain Access",
+        action_type="type_text",
+        workflow_category=WorkflowCategory.SENSITIVE,
+        domain="bank.example.com",
+        summary="Type a terminal command into a sensitive app.",
+        settings=settings,
+    )
+
+    assert decision.allowed is True
+    assert decision.approval_tier == ApprovalTier.INFORM_ONLY
+    assert decision.requires_reviewer_approval is False
+    assert any("YOLO mode" in reason for reason in decision.risk_reasons)

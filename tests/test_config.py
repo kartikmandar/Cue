@@ -35,6 +35,7 @@ CONFIG_ENV_KEYS = [
     "CUE_ALLOW_TERMINAL_WRITE",
     "CUE_ENABLE_VOICE_INPUT",
     "CUE_SPEAK",
+    "CUE_YOLO_MODE",
     "CUE_ALLOWED_APPS",
     "CUE_BLOCKED_APPS",
     "CUE_ALLOWED_DOMAINS",
@@ -72,6 +73,17 @@ def test_strict_privacy_defaults(monkeypatch):
     assert settings.allow_terminal_write is False
     assert settings.require_workflow_approval is True
     assert settings.focus_check_required is True
+    assert settings.yolo_mode is False
+
+
+def test_yolo_mode_can_be_enabled_from_environment(monkeypatch):
+    clear_config_env(monkeypatch)
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-key")
+    monkeypatch.setenv("CUE_YOLO_MODE", "true")
+
+    settings = load_settings(env_file=None)
+
+    assert settings.yolo_mode is True
 
 
 def test_comma_separated_policy_lists_parse_into_lists(monkeypatch):

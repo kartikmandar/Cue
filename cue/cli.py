@@ -86,9 +86,7 @@ def main(
         if args.read_only:
             messages.append("Read-only mode prevented execution of the next step.")
         elif not args.approve:
-            messages.append(
-                "Next step was not executed because approval is required."
-            )
+            messages.append("Next step was not executed because approval is required.")
         else:
             try:
                 workflow = session.execute_next_step()
@@ -194,7 +192,9 @@ def observe_desktop(driver: CuaDriver | None = None) -> DesktopObservation:
         cursor_position=cursor,
         apps=app_items,
         windows=window_items,
-        accessibility_tree=accessibility_tree if isinstance(accessibility_tree, dict) else None,
+        accessibility_tree=accessibility_tree
+        if isinstance(accessibility_tree, dict)
+        else None,
         screen_size=screen_size if isinstance(screen_size, dict) else None,
         screenshot_ref=None,
         sources=[
@@ -222,7 +222,10 @@ class LocalCliPlanner:
         intent = classify_intent(normalized)
         if not intent.workflow_required:
             return _answer_plan(intent, observation)
-        if intent.workflow_category == WorkflowCategory.SENSITIVE:
+        if (
+            intent.workflow_category == WorkflowCategory.SENSITIVE
+            and not self.settings.yolo_mode
+        ):
             return _blocked_sensitive_plan(intent)
         if _is_task_16_textedit_document_request(intent):
             return create_document_workflow(
@@ -639,7 +642,9 @@ def _window_app(window: dict[str, Any] | None) -> str | None:
 def _window_title(window: dict[str, Any] | None) -> str | None:
     if not isinstance(window, dict):
         return None
-    return _first_text(window.get("title"), window.get("window_title"), window.get("name"))
+    return _first_text(
+        window.get("title"), window.get("window_title"), window.get("name")
+    )
 
 
 def _same_text(left: str | None, right: str | None) -> bool:

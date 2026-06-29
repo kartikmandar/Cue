@@ -166,6 +166,26 @@ final class AppStateConversationTests: XCTestCase {
     }
 
     @MainActor
+    func testYoloModeToggleUpdatesBackendAndClearsPendingApproval() async {
+        let client = StubBackendClient(
+            modeResponse: CueModeResponse(yoloMode: true)
+        )
+        let appState = AppState(backendClient: client)
+        appState.apply(
+            CueSessionState(
+                sessionID: "session-123",
+                phase: .awaitingWorkflowApproval
+            )
+        )
+
+        await appState.setYoloMode(true)
+
+        XCTAssertEqual(client.yoloModeRequests, [true])
+        XCTAssertTrue(appState.yoloMode)
+        XCTAssertFalse(appState.pendingApproval)
+    }
+
+    @MainActor
     func testSpeechPreferencesPersistVoiceRateAndPitch() {
         let suiteName = "CueSpeechPreferences-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -270,9 +290,11 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
     private let chatResponse: CueChatResponse
     private let approveResponse: CueSessionState
     private let nextResponse: CueSessionState
+    private let modeResponse: CueModeResponse
     private(set) var chatRequests: [ChatRequest] = []
     private(set) var approveRequests: [String] = []
     private(set) var nextRequests: [String] = []
+    private(set) var yoloModeRequests: [Bool] = []
 
     init(
         chatResponse: CueChatResponse = CueChatResponse(
@@ -289,11 +311,15 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
         nextResponse: CueSessionState = CueSessionState(
             sessionID: "next",
             phase: .completed
+        ),
+        modeResponse: CueModeResponse = CueModeResponse(
+            yoloMode: false
         )
     ) {
         self.chatResponse = chatResponse
         self.approveResponse = approveResponse
         self.nextResponse = nextResponse
+        self.modeResponse = modeResponse
     }
 
     func health() async throws -> CueHealthResponse {
@@ -342,5 +368,10 @@ private final class StubBackendClient: BackendClientProtocol, @unchecked Sendabl
 
     func auditEvents(sessionID: String?) async throws -> [CueAuditEvent] {
         []
+    }
+
+    func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse {
+        yoloModeRequests.append(enabled)
+        return modeResponse
     }
 }

@@ -95,6 +95,17 @@ class CueBackend:
             self._record_event(runtime, "block", session)
         return self._response(runtime, session, started_at=start)
 
+    def set_yolo_mode(self, enabled: bool) -> dict[str, bool]:
+        self.settings = self.settings.model_copy(update={"yolo_mode": enabled})
+        if hasattr(self._planner, "settings"):
+            self._planner.settings = self.settings
+        for runtime in self._sessions.values():
+            runtime.orchestrator.settings = self.settings
+        return {"yolo_mode": self.settings.yolo_mode}
+
+    def mode(self) -> dict[str, bool]:
+        return {"yolo_mode": self.settings.yolo_mode}
+
     def chat(
         self,
         request: str,
@@ -133,9 +144,7 @@ class CueBackend:
         runtime = self._runtime(session_id)
         session = runtime.orchestrator.execute_next_step()
         event_type = (
-            "block"
-            if session.state == SessionState.BLOCKED.value
-            else "execution"
+            "block" if session.state == SessionState.BLOCKED.value else "execution"
         )
         self._record_event(runtime, event_type, session)
         if session.last_verification is not None:
@@ -231,7 +240,9 @@ class CueBackend:
     ) -> None:
         plan = session.plan
         verification = session.last_verification
-        workflow_id = plan.workflow_id if plan and plan.workflow_id else session.session_id
+        workflow_id = (
+            plan.workflow_id if plan and plan.workflow_id else session.session_id
+        )
         summary = _event_summary(event_type, session)
         if actor:
             summary = f"{actor}: {summary}"
@@ -244,7 +255,9 @@ class CueBackend:
             "current_step_id": session.current_step_id,
             "approval_tier": _approval_tier(plan, session.state),
             "policy_reason": _policy_reason(plan, session.state),
-            "verification_status": verification.status if verification else "not_started",
+            "verification_status": verification.status
+            if verification
+            else "not_started",
             "summary": redact_for_persistence(summary),
         }
         runtime.audit_events.append(record)

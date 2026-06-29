@@ -3,12 +3,14 @@ import SwiftUI
 struct PrivacyStatusView: View {
     let status: CueOnboardingStatus
     let privacyMode: String
+    let yoloMode: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Privacy", systemImage: "lock.shield")
                 .font(.headline)
             PrivacyLine(title: "Mode", value: privacyMode.capitalized, isReady: status.strictPrivacyMode)
+            PrivacyLine(title: "YOLO", value: yoloMode ? "Enabled" : "Disabled", isReady: !yoloMode)
             PrivacyLine(title: "Screenshots", value: "Persistence Off", isReady: true)
             PrivacyLine(title: "Audit", value: status.auditRedactionEnabled ? "Redacted" : "Raw", isReady: status.auditRedactionEnabled)
             PrivacyLine(title: "Terminal Write", value: status.terminalWriteDisabled ? "Disabled" : "Enabled", isReady: status.terminalWriteDisabled)

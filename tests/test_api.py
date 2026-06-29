@@ -163,7 +163,21 @@ def test_health_endpoint():
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "app": "cue"}
+    assert response.json() == {"status": "ok", "app": "cue", "yolo_mode": False}
+
+
+def test_mode_endpoint_updates_yolo_mode_and_existing_sessions():
+    executor = FakeExecutor()
+    client, _backend = make_client(executor=executor)
+    preview = client.post("/session/preview", json={"request": "Type Cue"}).json()
+    session_id = preview["session_id"]
+
+    mode = client.post("/mode", json={"yolo_mode": True}).json()
+    next_response = client.post("/session/next", json={"session_id": session_id}).json()
+
+    assert mode == {"yolo_mode": True}
+    assert next_response["state"] == SessionState.COMPLETED.value
+    assert len(executor.calls) == 1
 
 
 def test_preview_response_shape():
@@ -212,7 +226,9 @@ def test_reviewer_endpoints_support_confirmation_and_denial():
         )
 
     client, _backend = make_client(planner=guardian_plan)
-    preview = client.post("/session/preview", json={"request": "Prepare release"}).json()
+    preview = client.post(
+        "/session/preview", json={"request": "Prepare release"}
+    ).json()
 
     requested = client.post(
         "/session/request-review",

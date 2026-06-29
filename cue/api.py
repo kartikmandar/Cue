@@ -45,14 +45,32 @@ class CancelRequest(SessionRequest):
     reason: str = "Workflow cancelled."
 
 
+class ModeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    yolo_mode: bool
+
+
 def create_app(backend: CueBackend | None = None) -> FastAPI:
     cue_backend = backend or create_backend()
     app = FastAPI(title="Cue Local Backend", version="0.1.0")
     app.state.backend = cue_backend
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok", "app": "cue"}
+    def health() -> dict[str, str | bool]:
+        return {
+            "status": "ok",
+            "app": "cue",
+            "yolo_mode": cue_backend.settings.yolo_mode,
+        }
+
+    @app.get("/mode")
+    def mode() -> dict[str, bool]:
+        return cue_backend.mode()
+
+    @app.post("/mode")
+    def set_mode(request: ModeRequest) -> dict[str, bool]:
+        return cue_backend.set_yolo_mode(request.yolo_mode)
 
     @app.post("/session/preview")
     def preview(request: PreviewRequest) -> dict:

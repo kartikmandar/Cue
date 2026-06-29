@@ -179,6 +179,25 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(state.auditEvents.first?.eventType, "verification_result")
     }
 
+    func testSetYoloModePostsModeRequestAndDecodesResponse() async throws {
+        RecordingURLProtocol.stub(
+            path: "/mode",
+            response: #"{"yolo_mode": true}"#
+        )
+        let client = BackendClient(
+            baseURL: URL(string: "http://127.0.0.1:8765")!,
+            session: .recording
+        )
+
+        let response = try await client.setYoloMode(true)
+
+        let request = try XCTUnwrap(RecordingURLProtocol.lastRequest)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/mode")
+        XCTAssertEqual(try request.jsonBody()["yolo_mode"] as? Bool, true)
+        XCTAssertEqual(response.yoloMode, true)
+    }
+
     func testChatPostsCommandAndDecodesConversationResponse() async throws {
         let payload = """
         {

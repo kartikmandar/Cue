@@ -16,6 +16,7 @@ protocol BackendClientProtocol: Sendable {
     func cancel(sessionID: String, reason: String) async throws -> CueSessionState
     func session(id sessionID: String) async throws -> CueSessionState
     func auditEvents(sessionID: String?) async throws -> [CueAuditEvent]
+    func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse
 }
 
 extension BackendClientProtocol {
@@ -142,6 +143,14 @@ final class BackendClient: @unchecked Sendable {
             queryItems: sessionID.map { [URLQueryItem(name: "session_id", value: $0)] } ?? []
         )
         return envelope.events
+    }
+
+    func setYoloMode(_ enabled: Bool) async throws -> CueModeResponse {
+        try await send(
+            path: "/mode",
+            method: "POST",
+            body: ModeRequest(yoloMode: enabled)
+        )
     }
 
     private func send<Response: Decodable>(
@@ -296,6 +305,14 @@ private struct CancelRequest: Encodable {
     enum CodingKeys: String, CodingKey {
         case sessionID = "session_id"
         case reason
+    }
+}
+
+private struct ModeRequest: Encodable {
+    let yoloMode: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case yoloMode = "yolo_mode"
     }
 }
 

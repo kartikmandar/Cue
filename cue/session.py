@@ -128,7 +128,7 @@ class CueSessionOrchestrator:
                 return self.inspect_current_session()
 
             review = self._reviewer(plan)
-            if not review.approved:
+            if not self.settings.yolo_mode and not review.approved:
                 self._state = SessionState.BLOCKED
                 self._narration = _review_block_narration(review)
                 self._remember()
@@ -139,8 +139,11 @@ class CueSessionOrchestrator:
                 self._narration = self._narrator.describe_screen(
                     _desktop_observation(observation)
                 )
-            elif _needs_reviewer(plan, decision):
+            elif _needs_reviewer(plan, decision, settings=self.settings):
                 self._state = SessionState.AWAITING_REVIEWER_APPROVAL
+                self._narration = self._narrator.describe_plan(plan)
+            elif not self.settings.require_workflow_approval or self.settings.yolo_mode:
+                self._state = SessionState.PREVIEW_READY
                 self._narration = self._narrator.describe_plan(plan)
             else:
                 self._state = SessionState.AWAITING_WORKFLOW_APPROVAL
@@ -173,7 +176,9 @@ class CueSessionOrchestrator:
 
         self._workflow_approved = True
         self._state = SessionState.AWAITING_STEP_APPROVAL
-        self._narration = self._narrator.next_step(self._plan.steps[self._current_step_index])
+        self._narration = self._narrator.next_step(
+            self._plan.steps[self._current_step_index]
+        )
         self._remember()
         return self.inspect_current_session()
 
@@ -188,10 +193,17 @@ class CueSessionOrchestrator:
             return self.inspect_current_session()
         if self._plan is None or not self._plan.steps:
             return self.inspect_current_session()
-        if _needs_reviewer(self._plan, self._preview_decision) and not self._reviewer_approved:
+        if (
+            _needs_reviewer(self._plan, self._preview_decision, settings=self.settings)
+            and not self._reviewer_approved
+        ):
             self._state = SessionState.AWAITING_REVIEWER_APPROVAL
             return self.inspect_current_session()
-        if not self._workflow_approved:
+        if (
+            self.settings.require_workflow_approval
+            and not self.settings.yolo_mode
+            and not self._workflow_approved
+        ):
             self._state = SessionState.AWAITING_WORKFLOW_APPROVAL
             return self.inspect_current_session()
         if self._current_step_index >= len(self._plan.steps):
@@ -230,7 +242,11 @@ class CueSessionOrchestrator:
         if self._current_step_index >= len(self._plan.steps):
             self._state = SessionState.COMPLETED
         else:
-            self._state = SessionState.AWAITING_STEP_APPROVAL
+            self._state = (
+                SessionState.PREVIEW_READY
+                if self.settings.yolo_mode
+                else SessionState.AWAITING_STEP_APPROVAL
+            )
         self._remember()
         return self.inspect_current_session()
 
@@ -345,7 +361,11 @@ class CueSessionOrchestrator:
 def _needs_reviewer(
     plan: WorkflowPlan,
     decision: SafetyDecision | None,
+    *,
+    settings: Settings,
 ) -> bool:
+    if settings.yolo_mode:
+        return False
     return (
         plan.requires_reviewer_approval
         or plan.approval_tier == ApprovalTier.GUARDIAN_REQUIRED
@@ -355,11 +375,7 @@ def _needs_reviewer(
 
 
 def _is_answer_only(plan: WorkflowPlan, decision: SafetyDecision) -> bool:
-    return (
-        not plan.workflow_required
-        or not plan.steps
-        or decision.approval_tier == ApprovalTier.INFORM_ONLY
-    )
+    return not plan.workflow_required or not plan.steps
 
 
 def _focus_snapshot(
@@ -374,7 +390,9 @@ def _focus_snapshot(
             focused_element=_focus_label(observation),
         )
     return FocusSnapshot(
-        active_app=str(observation.get("active_app") or observation.get("app") or "Unknown"),
+        active_app=str(
+            observation.get("active_app") or observation.get("app") or "Unknown"
+        ),
         active_window=observation.get("active_window") or observation.get("window"),
         focused_element=observation.get("focused_element") or observation.get("focus"),
         domain=observation.get("domain"),

@@ -20,6 +20,7 @@ final class AppState: ObservableObject {
     @Published var speechPreferences: SpeechPreferences
     @Published var speechVoiceOptions: [SpeechVoiceOption]
     @Published var privacyMode = "strict"
+    @Published var yoloMode = false
     @Published var pendingApproval = false
     @Published var focusStatus: CueFocusStatus?
     @Published var auditSummary: [String] = []
@@ -54,17 +55,40 @@ final class AppState: ObservableObject {
         let environment = ProcessInfo.processInfo.environment
         let status = permissionChecker.snapshot()
         privacyMode = status.strictPrivacyMode ? "strict" : environment["CUE_PRIVACY_MODE", default: "standard"]
+        yoloMode = environment["CUE_YOLO_MODE"].map { $0 == "true" } ?? yoloMode
         speechEnabled = environment["CUE_SPEAK"].map { $0 != "false" } ?? true
         onboardingStatus = status
+        refreshPendingApproval()
     }
 
     func refreshBackendHealth() async {
         do {
             let response = try await backendClient.health()
             backendHealth = response.status == "ok" ? .healthy : .unavailable
+            if let backendYoloMode = response.yoloMode {
+                yoloMode = backendYoloMode
+                refreshPendingApproval()
+            }
             lastErrorMessage = nil
         } catch {
             backendHealth = .unavailable
+            lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    func setYoloMode(_ enabled: Bool) async {
+        let previous = yoloMode
+        yoloMode = enabled
+        refreshPendingApproval()
+        do {
+            let response = try await backendClient.setYoloMode(enabled)
+            yoloMode = response.yoloMode
+            refreshPendingApproval()
+            lastErrorMessage = nil
+        } catch {
+            yoloMode = previous
+            refreshPendingApproval()
+            phase = .error
             lastErrorMessage = error.localizedDescription
         }
     }
@@ -253,9 +277,7 @@ final class AppState: ObservableObject {
     func apply(_ session: CueSessionState) {
         currentSession = session
         phase = session.phase
-        pendingApproval = session.phase == .awaitingWorkflowApproval
-            || session.phase == .awaitingStepApproval
-            || session.phase == .awaitingReviewerApproval
+        pendingApproval = approvalIsPending(for: session.phase)
         focusStatus = session.focusStatus
         auditSummary = session.auditSummary
     }
@@ -280,6 +302,19 @@ final class AppState: ObservableObject {
     private func updateSpeechPreferences(_ preferences: SpeechPreferences) {
         speechPreferences = preferences
         speechPreferenceStore.save(preferences)
+    }
+
+    private func refreshPendingApproval() {
+        pendingApproval = currentSession.map { approvalIsPending(for: $0.phase) } ?? false
+    }
+
+    private func approvalIsPending(for phase: CuePhase) -> Bool {
+        !yoloMode
+            && (
+                phase == .awaitingWorkflowApproval
+                    || phase == .awaitingStepApproval
+                    || phase == .awaitingReviewerApproval
+            )
     }
 }
 

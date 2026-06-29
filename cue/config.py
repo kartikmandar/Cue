@@ -60,6 +60,7 @@ class Settings(BaseModel):
     allow_terminal_write: bool = False
     enable_voice_input: bool = False
     speak: bool = True
+    yolo_mode: bool = False
     allowed_apps: list[str] = Field(default_factory=lambda: DEFAULT_ALLOWED_APPS.copy())
     blocked_apps: list[str] = Field(default_factory=lambda: DEFAULT_BLOCKED_APPS.copy())
     allowed_domains: list[str] = Field(
@@ -136,6 +137,7 @@ def load_settings(env_file: str | Path | None = ".env") -> Settings:
         allow_terminal_write=_env_bool("CUE_ALLOW_TERMINAL_WRITE", False),
         enable_voice_input=_env_bool("CUE_ENABLE_VOICE_INPUT", False),
         speak=_env_bool("CUE_SPEAK", True),
+        yolo_mode=_env_bool("CUE_YOLO_MODE", False),
         allowed_apps=_env_list("CUE_ALLOWED_APPS", DEFAULT_ALLOWED_APPS),
         blocked_apps=_env_list("CUE_BLOCKED_APPS", DEFAULT_BLOCKED_APPS),
         allowed_domains=_env_list("CUE_ALLOWED_DOMAINS", DEFAULT_ALLOWED_DOMAINS),

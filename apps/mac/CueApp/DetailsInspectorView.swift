@@ -9,7 +9,11 @@ struct DetailsInspectorView: View {
                 header
                 trustRail
                 FocusStatusView(focus: appState.focusStatus)
-                PrivacyStatusView(status: appState.onboardingStatus, privacyMode: appState.privacyMode)
+                PrivacyStatusView(
+                    status: appState.onboardingStatus,
+                    privacyMode: appState.privacyMode,
+                    yoloMode: appState.yoloMode
+                )
                 TimingView(timing: appState.currentSession?.timing)
                 AuditTrailView(
                     events: appState.currentSession?.auditEvents ?? [],

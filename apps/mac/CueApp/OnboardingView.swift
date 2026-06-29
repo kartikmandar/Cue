@@ -54,6 +54,7 @@ struct OnboardingView: View {
             StatusRow(title: "Audit Redaction", value: appState.onboardingStatus.auditRedactionEnabled.enabledLabel)
             StatusRow(title: "Terminal Write", value: appState.onboardingStatus.terminalWriteDisabled ? "Disabled" : "Enabled")
             StatusRow(title: "Reviewer Mode", value: appState.onboardingStatus.reviewerModeEnabled.enabledLabel)
+            StatusRow(title: "YOLO Mode", value: appState.yoloMode.enabledLabel)
         }
         .padding(16)
         .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
@@ -98,6 +99,10 @@ struct OnboardingView: View {
                 Toggle("Speech", isOn: $appState.speechEnabled)
                     .toggleStyle(.switch)
 
+                Toggle("YOLO", isOn: yoloModeBinding)
+                    .toggleStyle(.switch)
+                    .help("Run requested actions without approval or reviewer gates.")
+
                 Button {
                     voicePreferencesVisible.toggle()
                 } label: {
@@ -117,6 +122,15 @@ struct OnboardingView: View {
                 .toggleStyle(.switch)
             }
         }
+    }
+
+    private var yoloModeBinding: Binding<Bool> {
+        Binding(
+            get: { appState.yoloMode },
+            set: { enabled in
+                Task { await appState.setYoloMode(enabled) }
+            }
+        )
     }
 
     private var backendHealthLabel: String {

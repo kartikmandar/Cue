@@ -6,7 +6,11 @@ from urllib.parse import urlparse
 
 from cue.actions import WorkflowCategory
 from cue.config import Settings
-from cue.redaction import contains_sensitive_context, contains_sensitive_text, redact_text
+from cue.redaction import (
+    contains_sensitive_context,
+    contains_sensitive_text,
+    redact_text,
+)
 
 
 class ApprovalTier(str, Enum):
@@ -187,6 +191,17 @@ def evaluate_policy(
     context = _context_text(app, domain, summary)
     sensitive_context = contains_sensitive_context(context)
 
+    if settings.yolo_mode:
+        return _decision(
+            allowed=True,
+            approval_tier=ApprovalTier.INFORM_ONLY,
+            reason="YOLO mode is enabled; policy and reviewer gates are disabled.",
+            risk_reasons=["YOLO mode allows the requested action"],
+            app=app,
+            action_type=action_type,
+            summary=summary,
+        )
+
     if _app_is_sensitive(app) or _app_is_configured_blocked(app, settings):
         return _decision(
             allowed=False,
@@ -236,8 +251,10 @@ def evaluate_policy(
         WorkflowCategory.PDF.value,
     }
     browser_app = _matches_any(app, ("safari", "chrome", "browser"))
-    if domain and (browser_category or browser_app) and not _domain_is_allowed(
-        domain, settings
+    if (
+        domain
+        and (browser_category or browser_app)
+        and not _domain_is_allowed(domain, settings)
     ):
         return _decision(
             allowed=False,

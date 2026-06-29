@@ -191,6 +191,27 @@ def make_orchestrator(tmp_path, *, plan, observer, executor=None, verifier=None)
     )
 
 
+def make_yolo_orchestrator(tmp_path, *, plan, observer, executor=None, verifier=None):
+    return CueSessionOrchestrator(
+        settings=make_settings(
+            yolo_mode=True,
+            require_workflow_approval=False,
+            focus_check_required=False,
+            allow_terminal_write=True,
+        ),
+        observer=observer,
+        planner=lambda request, observation: plan,
+        reviewer=lambda workflow_plan: PlanReview(
+            approved=False,
+            issues=["strict reviewer would block this plan"],
+            revised_confirmation_prompt=workflow_plan.confirmation_prompt,
+        ),
+        executor=executor or FakeExecutor(),
+        verifier=verifier or FakeVerifier(passed()),
+        memory=SessionMemory(tmp_path / ".cue" / "memory.json"),
+    )
+
+
 def test_answer_only_request_completes_without_action_approval_or_execution(tmp_path):
     executor = FakeExecutor()
     plan = make_plan(
@@ -352,3 +373,41 @@ def test_cancel_expires_pending_workflow_and_prevents_later_execution(tmp_path):
     assert cancelled.state == SessionState.CANCELLED.value
     assert result.state == SessionState.CANCELLED.value
     assert executor.calls == []
+
+
+def test_yolo_mode_skips_reviewer_and_user_approval_before_execution(tmp_path):
+    executor = FakeExecutor()
+    plan = make_plan(
+        steps=[
+            make_step(
+                "step-1",
+                ActionType.HOTKEY,
+                title="Prepare release action",
+                reason="Prepare a deploy release action.",
+                payload={"keys": ["command", "r"]},
+            ),
+            make_step("step-2", ActionType.TYPE_TEXT, title="Type Release Note"),
+        ],
+        approval_tier=ApprovalTier.GUARDIAN_REQUIRED,
+        requires_reviewer=True,
+        text="Prepare deploy release",
+    )
+    session = make_yolo_orchestrator(
+        tmp_path,
+        plan=plan,
+        observer=FakeObserver(
+            make_observation("TextEdit", "Untitled", "Document body"),
+            make_observation("Safari", "Dashboard", "Search field"),
+        ),
+        executor=executor,
+        verifier=FakeVerifier(passed(), passed()),
+    )
+
+    preview = session.preview("Prepare deploy release")
+    first = session.execute_next_step()
+    second = session.execute_next_step()
+
+    assert preview.state == SessionState.PREVIEW_READY.value
+    assert first.state == SessionState.PREVIEW_READY.value
+    assert second.state == SessionState.COMPLETED.value
+    assert len(executor.calls) == 2

@@ -284,6 +284,27 @@ struct CueFocusStatus: Codable, Equatable {
 struct CueHealthResponse: Codable, Equatable {
     let status: String
     let app: String
+    let yoloMode: Bool?
+
+    init(status: String, app: String, yoloMode: Bool? = nil) {
+        self.status = status
+        self.app = app
+        self.yoloMode = yoloMode
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case app
+        case yoloMode = "yolo_mode"
+    }
+}
+
+struct CueModeResponse: Codable, Equatable {
+    let yoloMode: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case yoloMode = "yolo_mode"
+    }
 }
 
 struct CueWorkflowPlan: Codable, Equatable {

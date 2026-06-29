@@ -34,6 +34,10 @@ struct ConversationView: View {
             Toggle("Speech", isOn: $appState.speechEnabled)
                 .toggleStyle(.switch)
                 .accessibilityLabel("Speech narration")
+            Toggle("YOLO", isOn: yoloModeBinding)
+                .toggleStyle(.switch)
+                .help("Run requested actions without approval or reviewer gates.")
+                .accessibilityLabel("YOLO mode")
             Button {
                 voicePreferencesVisible.toggle()
             } label: {
@@ -57,6 +61,15 @@ struct ConversationView: View {
         .padding(.horizontal, 22)
         .padding(.vertical, 14)
         .accessibilityElement(children: .contain)
+    }
+
+    private var yoloModeBinding: Binding<Bool> {
+        Binding(
+            get: { appState.yoloMode },
+            set: { enabled in
+                Task { await appState.setYoloMode(enabled) }
+            }
+        )
     }
 
     private var transcript: some View {
@@ -244,7 +257,7 @@ private struct ActionPreviewCard: View {
                 }
             }
 
-            Text(session.confirmationPrompt ?? "Cue will ask before it changes state.")
+            Text(confirmationText)
                 .font(.callout)
 
             HStack(spacing: 10) {
@@ -254,7 +267,7 @@ private struct ActionPreviewCard: View {
                     Label("Approve", systemImage: "checkmark.seal")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!appState.pendingApproval || appState.phase.isBusy)
+                .disabled(appState.yoloMode || !appState.pendingApproval || appState.phase.isBusy)
 
                 Button {
                     Task { await appState.executeNextStep() }
@@ -274,6 +287,13 @@ private struct ActionPreviewCard: View {
         .padding(14)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .contain)
+    }
+
+    private var confirmationText: String {
+        if appState.yoloMode {
+            return "YOLO mode is on. Cue can run the next step without approval."
+        }
+        return session.confirmationPrompt ?? "Cue will ask before it changes state."
     }
 }
 
